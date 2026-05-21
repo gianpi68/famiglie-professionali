@@ -425,25 +425,26 @@ const STORAGE_KEY="famiglie_pro_v2";
 let _saveTimer=null;
 let _lastSaved=null;
 
-// ── GITHUB SYNC CONFIG ────────────────────────────────────────
+// ── GIST SYNC CONFIG ─────────────────────────────────────────
 const GH_TOKEN="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";
-const GH_OWNER="gianpi68";
-const GH_REPO="famiglie-professionali";
-const GH_FILE="dati.json";
-const GH_API=`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
-let _ghSha=null; // SHA del file su GitHub, necessario per aggiornarlo
+const GIST_ID="51265e9eb909b056338c48279591b6c6";
+const GIST_FILE="dati.json";
+const GIST_API=`https://api.github.com/gists/${GIST_ID}`;
 let _ghSyncing=false;
 
 async function githubLoad(){
   try{
-    const r=await fetch(GH_API,{headers:{"Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
-    if(r.status===404) return false; // file non esiste ancora
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const meta=await r.json();
-    _ghSha=meta.sha;
-    const content=JSON.parse(atob(meta.content.replace(/
-/g,"")));
-    return content;
+    const r=await fetch(GIST_API,{
+      headers:{
+        "Authorization":"token "+GH_TOKEN,
+        "Accept":"application/vnd.github.v3+json"
+      }
+    });
+    if(!r.ok){console.warn("Gist load HTTP "+r.status);return false;}
+    const gist=await r.json();
+    const raw=gist.files[GIST_FILE]&&gist.files[GIST_FILE].content;
+    if(!raw||raw.trim()==="{}") return false;
+    return JSON.parse(raw);
   }catch(e){console.warn("GitHub load error:",e);return false;}
 }
 
@@ -452,12 +453,18 @@ async function githubSave(data){
   _ghSyncing=true;
   updateSyncIndicator("saving");
   try{
-    const body={message:"Aggiornamento dati "+new Date().toLocaleString("it-IT"),content:btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2))))};
-    if(_ghSha) body.sha=_ghSha;
-    const r=await fetch(GH_API,{method:"PUT",headers:{"Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},body:JSON.stringify(body)});
+    const body={files:{}};
+    body.files[GIST_FILE]={content:JSON.stringify(data,null,2)};
+    const r=await fetch(GIST_API,{
+      method:"PATCH",
+      headers:{
+        "Authorization":"token "+GH_TOKEN,
+        "Accept":"application/vnd.github.v3+json",
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify(body)
+    });
     if(!r.ok) throw new Error("HTTP "+r.status);
-    const res=await r.json();
-    _ghSha=res.content.sha;
     updateSyncIndicator("ok");
   }catch(e){console.warn("GitHub save error:",e);updateSyncIndicator("error");}
   finally{_ghSyncing=false;}
@@ -469,7 +476,7 @@ function scheduleGithubSave(){
   _ghSaveTimer=setTimeout(()=>{
     const data={aziende:S.aziende,currentAzId:S.currentAzId,sidebarOpen:S.sidebarOpen,tab:S.tab,savedAt:new Date().toISOString()};
     githubSave(data);
-  },3000); // 3 secondi dopo l'ultima modifica
+  },3000);
 }
 
 function updateSyncIndicator(status){
@@ -484,19 +491,21 @@ function updateSyncIndicator(status){
 async function manualSync(){
   updateSyncIndicator("saving");
   const remote=await githubLoad();
-  if(!remote){scheduleGithubSave();return;}
-  // Confronta timestamp: prendi il più recente
+  if(!remote){
+    // Nessun dato remoto — carica il locale su Gist
+    const data={aziende:S.aziende,currentAzId:S.currentAzId,sidebarOpen:S.sidebarOpen,tab:S.tab,savedAt:new Date().toISOString()};
+    await githubSave(data);
+    return;
+  }
   const localTime=_lastSaved?_lastSaved.getTime():0;
   const remoteTime=remote.savedAt?new Date(remote.savedAt).getTime():0;
   if(remoteTime>localTime){
-    // I dati remoti sono più recenti — carica da GitHub
     applyLoadedData(remote);
     saveState();
     render();
     updateSyncIndicator("ok");
-    alert("Dati aggiornati da GitHub (versione più recente di un altro utente).");
+    alert("Dati aggiornati dal Gist (versione più recente).");
   } else {
-    // I dati locali sono più recenti — salva su GitHub
     const data={aziende:S.aziende,currentAzId:S.currentAzId,sidebarOpen:S.sidebarOpen,tab:S.tab,savedAt:new Date().toISOString()};
     await githubSave(data);
   }
@@ -616,7 +625,7 @@ function renderSidebar(){
   sb.innerHTML="";
 
   const tog=mk("button","sidebar-toggle",{onclick:()=>{S.sidebarOpen=!S.sidebarOpen;render();}});
-  tog.innerHTML=`<i class="ti ti-building-factory-2"></i>${S.sidebarOpen?'<span class="sidebar-label">Aziende</span>':""}`;
+  tog.innerHTML=`<i class="ti ti-building-factory-2"></i>${S.sidebarOpen?`<span class="sidebar-label">Aziende</span>`:""}`;
   sb.appendChild(tog);
 
   if(S.sidebarOpen){
@@ -671,7 +680,8 @@ function renderTopbar(){
     info.innerHTML=`<div class="az-topname">${a.nome}</div><div class="az-topsub">${a.settore||"Settore non definito"} · ${azProg(a)}/3 step completati</div>`;
   }
   const edBtn=mk("button","icon-btn",{onclick:()=>{S.editAzId=S.editAzId===a.id?null:a.id;render();}});
-  edBtn.innerHTML=`<i class="ti ${S.editAzId===a.id?'ti-check':'ti-edit'}"></i>`;
+  const edIcon=S.editAzId===a.id?"ti-check":"ti-edit";
+  edBtn.innerHTML=`<i class="ti ${edIcon}"></i>`;
   const expBtn=mk("button","export-btn",{onclick:()=>exportXlsx(a)});
   expBtn.innerHTML=`<i class="ti ti-download"></i> Esporta .xlsx`;
   // Indicatore salvataggio automatico
@@ -967,7 +977,9 @@ function tabPosizioni(c,a){
     const amb=a.ambiti.find(x=>x.id===p.ambitoId);const ruolo=a.ruoli.find(x=>x.id===p.ruoloId);
     const colR=ruolo?ruolo.color:{bg:"#F1EFE8",tc:"#444441"};const sc=amb&&ruolo?getFamilyScore(a,ruolo,amb):null;
     const row=mk("div","row-item");
-    const info=mk("div","");info.style.flex="1";info.innerHTML=`<p style="font-size:13px;font-weight:500;">${p.nome}</p><p style="font-size:11px;color:var(--text2);">${p.livello?'<span style="background:var(--bg2);border-radius:3px;padding:1px 5px;">'+p.livello+'</span> · ':""} ${ruolo?ruolo.nome:"⚠ Ruolo mancante"} · ${amb?amb.nome:"⚠ Ambito mancante"}</p>`;
+    const info=mk("div","");info.style.flex="1";
+    const livelloChip=p.livello?`<span style="background:var(--bg2);border-radius:3px;padding:1px 5px;">${p.livello}</span> · `:"";
+    info.innerHTML=`<p style="font-size:13px;font-weight:500;">${p.nome}</p><p style="font-size:11px;color:var(--text2);">${livelloChip}${ruolo?ruolo.nome:"⚠ Ruolo mancante"} · ${amb?amb.nome:"⚠ Ambito mancante"}</p>`;
     row.appendChild(info);
     const b=mk("span","badge");b.style.cssText=`background:${colR.bg};color:${colR.tc};`;b.textContent=ruolo?ruolo.nome:"—";row.appendChild(b);
     const sv=mk("span","");sv.style.cssText="font-size:11px;color:var(--text2);min-width:30px;text-align:right;";sv.textContent=sc!==null?sc.toFixed(2):"—";row.appendChild(sv);
