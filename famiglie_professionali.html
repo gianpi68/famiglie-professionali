@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Famiglie Professionali — Pay Transparency</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f6f3;
+    --bg3: #f0efe9;
+    --text: #1a1a18;
+    --text2: #6b6a63;
+    --text3: #9c9a92;
+    --border: rgba(0,0,0,0.10);
+    --border2: rgba(0,0,0,0.18);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --info-bg: #e6f1fb;
+    --info-tc: #0c447c;
+    --warn-bg: #fef3cd;
+    --warn-tc: #7d5a00;
+    --success-bg: #e8f5e9;
+    --success-tc: #1b5e20;
+    --danger-bg: #fdecea;
+    --danger-tc: #a32d2d;
+    --font: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --bg2: #2a2a27;
+      --bg3: #333330;
+      --text: #e8e6df;
+      --text2: #a8a69e;
+      --text3: #6e6c65;
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.18);
+      --info-bg: #0c2a45;
+      --info-tc: #85b7eb;
+      --warn-bg: #3a2e00;
+      --warn-tc: #f9cb42;
+      --success-bg: #0a2a0e;
+      --success-tc: #97c459;
+      --danger-bg: #2d0f0f;
+      --danger-tc: #f09595;
+    }
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg3);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* LAYOUT */
+  .app-shell { display: flex; min-height: 100vh; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 230px;
+    flex-shrink: 0;
+    background: var(--bg);
+    border-right: 0.5px solid var(--border);
+    padding: .75rem .65rem;
+    transition: width .2s;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .sidebar.collapsed { width: 52px; }
+
+  .sidebar-toggle {
+    display: flex; align-items: center; gap: 7px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text2); padding: 5px 6px; margin-bottom: 10px;
+    border-radius: var(--radius); width: 100%;
+    font-size: 13px; font-family: var(--font);
+  }
+  .sidebar-toggle:hover { background: var(--bg2); }
+  .sidebar-toggle i { font-size: 17px; flex-shrink: 0; }
+  .sidebar-label { white-space: nowrap; overflow: hidden; font-weight: 500; }
+
+  .az-form { margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .sep { border: none; border-top: 0.5px solid var(--border); margin: 0 0 7px; }
+
+  .az-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 9px; border-radius: var(--radius);
+    cursor: pointer; border: 0.5px solid transparent;
+    margin-bottom: 4px; transition: all .12s; position: relative;
+  }
+  .az-item:hover { background: var(--bg2); }
+  .az-item.active { background: var(--bg2); border-color: var(--border2); }
+  .az-avatar {
+    width: 32px; height: 32px; border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; flex-shrink: 0;
+  }
+  .az-info { flex: 1; min-width: 0; }
+  .az-name { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .az-sub { font-size: 10px; color: var(--text2); }
+  .del-az-btn {
+    opacity: 0; transition: opacity .15s;
+    background: none; border: none; cursor: pointer;
+    padding: 3px 5px; color: var(--text2); font-size: 13px;
+    border-radius: 4px; flex-shrink: 0; font-family: var(--font);
+  }
+  .az-item:hover .del-az-btn { opacity: 1; }
+  .del-az-btn:hover { color: var(--danger-tc); background: var(--danger-bg); }
+  .az-confirm {
+    background: var(--danger-bg); border-radius: var(--radius);
+    padding: 7px 9px; display: flex; align-items: center; gap: 6px;
+    margin-bottom: 4px;
+  }
+  .az-confirm span { font-size: 11px; color: var(--danger-tc); flex: 1; }
+
+  /* MAIN */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--bg); border-bottom: 0.5px solid var(--border);
+    padding: .75rem 1.25rem; display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .az-topavatar { width: 34px; height: 34px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .az-topinfo { flex: 1; min-width: 0; }
+  .az-topname { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .az-topsub { font-size: 11px; color: var(--text2); }
+
+  /* TABS */
+  .tab-bar {
+    background: var(--bg); border-bottom: 0.5px solid var(--border);
+    display: flex; padding: 0 1.25rem; gap: 2px; overflow-x: auto;
+  }
+  .tab-btn {
+    padding: 10px 14px; font-size: 12px; cursor: pointer;
+    border: none; background: transparent; color: var(--text2);
+    border-bottom: 2px solid transparent; font-weight: 400;
+    white-space: nowrap; font-family: var(--font);
+    transition: color .12s;
+  }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--text); font-weight: 500; }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+
+  /* CONTENT */
+  .content { padding: 1.25rem; max-width: 820px; }
+
+  /* CARDS */
+  .card {
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1rem 1.2rem; margin-bottom: .85rem;
+  }
+  .card-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .card-sub { font-size: 11px; color: var(--text2); margin-bottom: 10px; line-height: 1.5; }
+
+  /* FORMS */
+  input, select {
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius); padding: 7px 10px;
+    font-size: 12px; color: var(--text); font-family: var(--font);
+    outline: none; transition: border-color .12s;
+  }
+  input:focus, select:focus { border-color: #378ADD; }
+  input::placeholder { color: var(--text3); }
+
+  button {
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius); padding: 7px 14px;
+    font-size: 12px; color: var(--text); cursor: pointer;
+    font-family: var(--font); font-weight: 500;
+    transition: all .12s;
+  }
+  button:hover { background: var(--bg2); }
+  button:active { transform: scale(.98); }
+  button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  button.primary:hover { opacity: .88; }
+  button.danger-btn { color: var(--danger-tc); border-color: var(--danger-bg); background: var(--danger-bg); }
+
+  .icon-btn { background: none; border: none; padding: 4px 6px; color: var(--text2); cursor: pointer; border-radius: 4px; font-size: 15px; }
+  .icon-btn:hover { color: var(--text); background: var(--bg2); }
+  .icon-btn.danger:hover { color: var(--danger-tc); background: var(--danger-bg); }
+
+  .del-row-btn { background: none; border: none; cursor: pointer; padding: 3px 6px; color: var(--text2); font-size: 14px; border-radius: 4px; flex-shrink: 0; opacity: .4; transition: all .12s; font-family: var(--font); }
+  .del-row-btn:hover { opacity: 1; color: var(--danger-tc); background: var(--danger-bg); }
+
+  /* BADGE */
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: var(--radius); }
+
+  /* ROWS */
+  .row-item {
+    display: flex; align-items: center; gap: 9px;
+    background: var(--bg); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 9px 12px; margin-bottom: 6px;
+  }
+
+  /* BARS */
+  .bar-bg { flex: 1; background: var(--bg2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 6px; border-radius: 4px; transition: width .35s ease; }
+
+  /* SCORE DOTS */
+  .score-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500; border: 0.5px solid var(--border2);
+    cursor: pointer; transition: all .15s; flex-shrink: 0;
+    background: var(--bg); color: var(--text2);
+  }
+
+  /* STEP HEADER */
+  .step-hdr { margin-bottom: .9rem; }
+  .step-hdr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--bg2); color: var(--text2); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+  .step-title { font-size: 15px; font-weight: 500; }
+  .step-desc { font-size: 12px; color: var(--text2); line-height: 1.55; margin-left: 30px; }
+
+  /* SCALE ROW */
+  .scale-row { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; border-bottom: 0.5px solid var(--border); }
+  .scale-row:last-child { border-bottom: none; }
+
+  /* AMBITO ROW */
+  .ambito-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--border); }
+  .ambito-row:last-of-type { border-bottom: none; }
+
+  /* RUOLO ROW */
+  .ruolo-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--border); cursor: pointer; border-radius: var(--radius); padding-left: 4px; padding-right: 4px; }
+  .ruolo-row:hover { background: var(--bg2); }
+
+  /* CRITERIO OPTION */
+  .crit-option { display: flex; align-items: flex-start; gap: 9px; padding: 7px 9px; border-radius: var(--radius); border: 0.5px solid var(--border); background: var(--bg); cursor: pointer; margin-bottom: 5px; transition: all .12s; }
+  .crit-option:hover { border-color: var(--border2); }
+
+  /* GRID FORM */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+  @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+
+  .form-field label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 3px; }
+  .form-field input, .form-field select { width: 100%; }
+
+  /* ALERT */
+  .alert { border-radius: var(--radius); padding: 9px 12px; margin-bottom: .85rem; font-size: 12px; }
+  .alert-warn { background: var(--warn-bg); color: var(--warn-tc); }
+  .alert-info { background: var(--info-bg); color: var(--info-tc); }
+  .alert-success { background: var(--success-bg); color: var(--success-tc); }
+
+  /* NEXT BTN */
+  .next-btn { width: 100%; padding: 9px; font-size: 12px; margin-top: .5rem; }
+
+  /* TABLE */
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+  .mini-table th, .mini-table td { border: 0.5px solid var(--border); padding: 5px 6px; text-align: center; }
+  .mini-table th { background: var(--bg2); font-weight: 500; color: var(--text2); font-size: 10px; }
+  .mini-table td.row-hdr { text-align: left; font-weight: 500; }
+
+  /* SLIDER */
+  input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: var(--bg3); border: none; cursor: pointer; flex: 1; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--text); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--text); cursor: pointer; border: none; }
+
+  /* NOTA */
+  .nota { font-size: 11px; color: var(--text2); padding: 6px 9px; background: var(--bg2); border-radius: var(--radius); margin-top: 8px; line-height: 1.5; }
+
+  /* EXPORT BTN */
+  .export-btn { font-size: 11px; padding: 6px 12px; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+
+  /* EMPTY */
+  .empty { font-size: 12px; color: var(--text2); text-align: center; padding: 1.5rem 0; }
+
+  /* CHIPS */
+  .chip { font-size: 11px; padding: 3px 9px; border-radius: var(--radius); background: var(--bg2); border: 0.5px solid var(--border); display: inline-block; }
+
+  /* PESO SUMMARY */
+  .peso-total { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: var(--radius); margin-top: 6px; }
+
+  /* PRESET CHIP */
+  .preset-chip { font-size: 11px; padding: 3px 8px; border-radius: var(--radius); border: 0.5px solid var(--border2); cursor: pointer; display: inline-block; margin: 2px; transition: all .12s; color: var(--text); background: var(--bg); }
+  .preset-chip:hover { background: var(--bg2); }
+  .preset-chip.used { border-color: var(--border); color: var(--text2); background: var(--bg2); cursor: default; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="sidebar" class="sidebar"></div>
+  <div class="main">
+    <div id="topbar" class="topbar"></div>
+    <div id="tabbar" class="tab-bar"></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<script>
+// ── COSTANTI ──────────────────────────────────────────────────
+const RUOLI_COLORS_POOL=[
+  {bg:"#F1EFE8",tc:"#444441",bar:"#888780"},
+  {bg:"#E1F5EE",tc:"#085041",bar:"#5DCAA5"},
+  {bg:"#E6F1FB",tc:"#0C447C",bar:"#85B7EB"},
+  {bg:"#FAEEDA",tc:"#633806",bar:"#EF9F27"},
+  {bg:"#EEEDFE",tc:"#3C3489",bar:"#7F77DD"},
+  {bg:"#FAECE7",tc:"#712B13",bar:"#D85A30"},
+  {bg:"#FBEAF0",tc:"#72243E",bar:"#D4537E"},
+  {bg:"#EAF3DE",tc:"#27500A",bar:"#97C459"},
+];
+const AMBITI_PRESET=["Produzione","Manutenzione","Qualità","Logistica","Commerciale","Acquisti","Amministrazione","HR","IT","R&D / Tecnico"];
+const AMBITO_SCALE=[
+  {v:1,label:"Assente / Esternalizzato",desc:"La funzione non esiste internamente o è completamente affidata a terzi. Nessun impatto sul valore prodotto."},
+  {v:2,label:"Marginale",desc:"Funzione di supporto. Processi completamente standardizzati, zero differenziazione competitiva."},
+  {v:3,label:"Di servizio",desc:"Necessaria al funzionamento quotidiano ma facilmente sostituibile. Contributo indiretto e difficilmente misurabile."},
+  {v:4,label:"Rilevante",desc:"Funzione che garantisce qualità o continuità operativa. Contribuisce al risultato ma non è leva primaria di crescita."},
+  {v:5,label:"Abilitante",desc:"Supporta direttamente le funzioni core. La sua mancanza limita le performance delle altre aree."},
+  {v:6,label:"Strategico",desc:"Incide direttamente sul vantaggio competitivo. Decisioni nell'ambito hanno impatto misurabile su margine o crescita."},
+  {v:7,label:"Critico",desc:"Funzione ad altissimo impatto, difficilmente replicabile. La sua performance determina il posizionamento competitivo dell'azienda."},
+  {v:8,label:"Core del business",desc:"Ragione d'essere dell'azienda. Massima concentrazione di valore, competenze distintive e risorse strategiche."},
+];
+const CRITERI_BASE=[
+  {id:"c1",label:"Autonomia decisionale",defaultPeso:20,barClr:"#7F77DD",
+   def:"Misura il grado di discrezionalità del ruolo nel prendere decisioni, scegliere modalità operative, definire priorità e incidere su indirizzi organizzativi, gestionali o strategici.",
+   scale:[
+    {v:1,label:"Esecutivo vincolato",desc:"Opera secondo istruzioni dettagliate, procedure definite e supervisione costante. Non prende decisioni autonome, se non su aspetti esecutivi minimi."},
+    {v:2,label:"Operativo guidato",desc:"Svolge attività operative ricorrenti con margini limitati di scelta. Può decidere piccole priorità operative, ma all'interno di regole e procedure già stabilite."},
+    {v:3,label:"Operativo autonomo",desc:"Gestisce attività definite con una certa autonomia operativa. Può scegliere modalità di esecuzione e organizzare il proprio lavoro entro obiettivi assegnati."},
+    {v:4,label:"Gestionale orientato ai risultati",desc:"Decide come raggiungere risultati assegnati, gestendo priorità, tempi e soluzioni operative. Richiede supervisione solo su criticità o decisioni non ordinarie."},
+    {v:5,label:"Gestionale su processi",desc:"Prende decisioni gestionali su processi, attività o gruppi di lavoro. Ha autonomia nel definire piani d'azione e nel coordinare risorse entro obiettivi concordati."},
+    {v:6,label:"Decisionale rilevante",desc:"Assume decisioni rilevanti su aree organizzative, budget, processi o progetti complessi. Definisce priorità e soluzioni con impatto significativo sui risultati aziendali."},
+    {v:7,label:"Strategico-organizzativo",desc:"Contribuisce a decisioni strategiche e definisce indirizzi per funzioni, business unit o ambiti organizzativi ampi. Opera con elevata discrezionalità e basso livello di supervisione."},
+    {v:8,label:"Strategico complessivo",desc:"Ha autonomia decisionale strategica complessiva. Definisce indirizzi, politiche e scelte di lungo periodo con impatto sull'intera organizzazione o su una parte rilevante del business."},
+  ]},
+  {id:"c2",label:"Visione sistemica organizzativa",defaultPeso:20,barClr:"#5DCAA5",
+   def:"Misura il livello di comprensione richiesto al ruolo rispetto al funzionamento dell'organizzazione, alle interdipendenze tra funzioni, ai processi aziendali, alla mission e agli obiettivi complessivi.",
+   scale:[
+    {v:1,label:"Focalizzato sul compito",desc:"Richiede conoscenza limitata alla propria attività specifica. Non è richiesta comprensione del funzionamento complessivo dell'organizzazione."},
+    {v:2,label:"Consapevole del processo",desc:"Richiede conoscenza del proprio processo operativo e delle regole di base dell'area di appartenenza. Le interazioni con altre funzioni sono limitate."},
+    {v:3,label:"Orientato all'unità",desc:"Richiede comprensione del funzionamento della propria unità organizzativa e delle principali connessioni operative con altri ruoli o reparti."},
+    {v:4,label:"Coordinato con altre funzioni",desc:"Deve comprendere i processi collegati alla propria area e le principali interdipendenze organizzative. Deve coordinarsi con altre funzioni per garantire continuità operativa."},
+    {v:5,label:"Visione trasversale",desc:"Richiede una visione trasversale dei processi aziendali e capacità di leggere impatti, vincoli e priorità tra più aree organizzative."},
+    {v:6,label:"Integratore organizzativo",desc:"Deve interpretare dinamiche organizzative complesse, integrare esigenze di funzioni diverse e contribuire al miglioramento dei processi e dei modelli operativi."},
+    {v:7,label:"Visione strategica",desc:"Richiede comprensione ampia della strategia aziendale, del modello di business e delle principali leve organizzative. Traduce indirizzi strategici in scelte gestionali."},
+    {v:8,label:"Visione sistemica complessiva",desc:"Possiede e utilizza una visione sistemica complessiva dell'organizzazione, del contesto competitivo, degli stakeholder e delle evoluzioni strategiche di lungo periodo."},
+  ]},
+  {id:"c3",label:"Risorse gestite",defaultPeso:20,barClr:"#EF9F27",
+   def:"Misura l'entità quantitativa e qualitativa delle risorse gestite dal ruolo: persone, strumenti, tecnologie, budget, asset, fornitori, informazioni critiche o processi.",
+   scale:[
+    {v:1,label:"Risorse individuali",desc:"Utilizza risorse semplici e limitate, prevalentemente individuali, senza responsabilità di gestione o coordinamento."},
+    {v:2,label:"Risorse operative di base",desc:"Gestisce strumenti, materiali o informazioni operative di base. Non coordina persone né risorse economiche significative."},
+    {v:3,label:"Risorse tecniche specifiche",desc:"Gestisce risorse tecniche o informative specifiche e può coordinare attività semplici di altri soggetti in modo occasionale o limitato."},
+    {v:4,label:"Coordinamento operativo",desc:"Coordina risorse operative, strumenti, dati o attività di un piccolo gruppo o processo circoscritto. Può gestire risorse esterne limitate."},
+    {v:5,label:"Gestione continuativa",desc:"Gestisce risorse umane, tecniche o economiche con continuità. Ha responsabilità su budget, strumenti, fornitori o team di dimensione contenuta."},
+    {v:6,label:"Gestione rilevante e diversificata",desc:"Gestisce risorse rilevanti e diversificate, anche su più processi, progetti o unità operative. Coordina team, budget o asset con impatto significativo."},
+    {v:7,label:"Governo di risorse complesse",desc:"Governa risorse complesse, multidisciplinari e ad alto valore economico o strategico. Può gestire più team, budget rilevanti, fornitori critici o asset aziendali importanti."},
+    {v:8,label:"Responsabilità strategica",desc:"Ha responsabilità complessiva su risorse aziendali strategiche: persone, investimenti, budget, infrastrutture, tecnologie o asset critici per la continuità e lo sviluppo dell'organizzazione."},
+  ]},
+  {id:"c4",label:"Rapporti con l'esterno",defaultPeso:20,barClr:"#D85A30",
+   def:"Misura intensità, complessità, autonomia e rilevanza delle relazioni con interlocutori esterni: clienti, fornitori, partner, istituzioni, stakeholder sociali, sindacali o politici.",
+   scale:[
+    {v:1,label:"Nessuna relazione esterna",desc:"Non prevede relazioni significative con l'esterno oppure ha contatti occasionali e puramente esecutivi."},
+    {v:2,label:"Contatti standardizzati",desc:"Gestisce contatti semplici e standardizzati con interlocutori esterni, seguendo istruzioni, procedure o script predefiniti."},
+    {v:3,label:"Interazioni operative ricorrenti",desc:"Interagisce con interlocutori esterni su attività ricorrenti, fornendo informazioni, raccogliendo dati o gestendo richieste operative."},
+    {v:4,label:"Rapporti continuativi",desc:"Mantiene rapporti continuativi con clienti, fornitori o altri soggetti esterni, gestendo esigenze operative, problemi ordinari e scambi informativi."},
+    {v:5,label:"Gestione autonoma e negoziazione",desc:"Gestisce relazioni esterne con autonomia, anche con interlocutori differenziati e situazioni complesse. Può negoziare aspetti tecnici, operativi o economici entro limiti definiti."},
+    {v:6,label:"Relazioni rilevanti per il business",desc:"Presidia relazioni esterne rilevanti per risultati, qualità del servizio, continuità operativa o reputazione aziendale. Gestisce negoziazioni, criticità e stakeholder qualificati."},
+    {v:7,label:"Rappresentanza ad alto impatto",desc:"Rappresenta l'organizzazione in relazioni esterne complesse, ad alto impatto economico, istituzionale, commerciale o sociale. Gestisce partnership, accordi o situazioni negoziali rilevanti."},
+    {v:8,label:"Relazioni strategiche",desc:"Rappresenta l'organizzazione nei rapporti esterni strategici. Influenza relazioni istituzionali, sociali, politiche, sindacali, commerciali o di sistema con impatto sulla reputazione e sul posizionamento."},
+  ]},
+  {id:"c5",label:"Conoscenze tecnico-professionali",defaultPeso:20,barClr:"#85B7EB",
+   def:"Misura il livello di conoscenze richieste dalla posizione, non quelle possedute dalla persona. Può essere ancorato al quadro EQF europeo.",
+   scale:[
+    {v:1,label:"Conoscenze di base",desc:"Richiede conoscenze di base, prevalentemente pratiche, acquisibili con breve affiancamento. Le attività sono semplici, ripetitive e fortemente guidate."},
+    {v:2,label:"Conoscenze operative elementari",desc:"Richiede conoscenze operative elementari e capacità di applicare procedure standard. È sufficiente una preparazione di base o esperienza iniziale nel contesto specifico."},
+    {v:3,label:"Conoscenze tecnico-operative strutturate",desc:"Richiede conoscenze tecnico-operative strutturate e capacità di applicare metodi, strumenti o procedure in situazioni ricorrenti. È richiesta esperienza pratica nel ruolo o in attività analoghe."},
+    {v:4,label:"Conoscenze consolidate",desc:"Richiede conoscenze tecnico-professionali consolidate, capacità di gestire problemi operativi non sempre standard e buona padronanza degli strumenti di lavoro."},
+    {v:5,label:"Conoscenze specialistiche",desc:"Richiede conoscenze specialistiche, capacità di analisi, diagnosi e scelta tra soluzioni alternative. È necessaria esperienza significativa in ambito tecnico, professionale o gestionale."},
+    {v:6,label:"Competenze avanzate e integrate",desc:"Richiede competenze avanzate e integrate, capacità di gestire problemi complessi, progettare soluzioni, coordinare contributi specialistici e adattare metodi a contesti diversi."},
+    {v:7,label:"Alta specializzazione",desc:"Richiede conoscenze altamente specialistiche o manageriali, capacità di innovare, definire indirizzi tecnici/professionali e governare ambiti complessi con elevata incertezza."},
+    {v:8,label:"Esperto / Livello strategico",desc:"Richiede conoscenze di livello esperto, strategico o di massima specializzazione. Contribuisce a definire modelli, politiche, standard, innovazioni o indirizzi di lungo periodo."},
+  ]},
+];
+const RUOLI_DEFAULT=[
+  {nome:"Addetto",mult:1.0},{nome:"Esperto",mult:1.3},
+  {nome:"Coordinatore",mult:1.5},{nome:"Responsabile",mult:1.7},{nome:"Manager",mult:2.2}
+];
+const AZ_COLORS=[
+  {bg:"#E6F1FB",tc:"#0C447C"},{bg:"#E1F5EE",tc:"#085041"},
+  {bg:"#FAEEDA",tc:"#633806"},{bg:"#EEEDFE",tc:"#3C3489"},
+  {bg:"#FAECE7",tc:"#712B13"},{bg:"#FBEAF0",tc:"#72243E"},
+];
+
+const uid=()=>Math.random().toString(36).slice(2,8);
+
+function defaultRuoli(){
+  return RUOLI_DEFAULT.map((r,i)=>({
+    id:uid(),nome:r.nome,mult:r.mult,
+    color:RUOLI_COLORS_POOL[i%RUOLI_COLORS_POOL.length],
+    valutazione:{c1:null,c2:null,c3:null,c4:null,c5:null}
+  }));
+}
+function newAzienda(nome,settore){
+  const ruoli=defaultRuoli();
+  return {id:uid(),nome,settore,ambiti:[],nuovoAmbito:"",
+    criteriPesi:{c1:20,c2:20,c3:20,c4:20,c5:20},ruoli,
+    nuovoRuoloNome:"",nuovoRuoloMult:"",
+    selectedRuoloId:ruoli[0].id,
+    posizioni:[],nuovaPos:{nome:"",livello:"",ruoloId:"",ambitoId:""},editPosId:null};
+}
+
+// ── PERSISTENZA localStorage ──────────────────────────────────
+const STORAGE_KEY="famiglie_pro_v2";
+let _saveTimer=null;
+let _lastSaved=null;
+
+// ── GITHUB SYNC CONFIG ────────────────────────────────────────
+const GH_TOKEN="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";
+const GH_OWNER="gianpi68";
+const GH_REPO="famiglie-professionali";
+const GH_FILE="dati.json";
+const GH_API=`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+let _ghSha=null; // SHA del file su GitHub, necessario per aggiornarlo
+let _ghSyncing=false;
+
+async function githubLoad(){
+  try{
+    const r=await fetch(GH_API,{headers:{"Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json"}});
+    if(r.status===404) return false; // file non esiste ancora
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const meta=await r.json();
+    _ghSha=meta.sha;
+    const content=JSON.parse(atob(meta.content.replace(/
+/g,"")));
+    return content;
+  }catch(e){console.warn("GitHub load error:",e);return false;}
+}
+
+async function githubSave(data){
+  if(_ghSyncing) return;
+  _ghSyncing=true;
+  updateSyncIndicator("saving");
+  try{
+    const body={message:"Aggiornamento dati "+new Date().toLocaleString("it-IT"),content:btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2))))};
+    if(_ghSha) body.sha=_ghSha;
+    const r=await fetch(GH_API,{method:"PUT",headers:{"Authorization":`token ${GH_TOKEN}`,"Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const res=await r.json();
+    _ghSha=res.content.sha;
+    updateSyncIndicator("ok");
+  }catch(e){console.warn("GitHub save error:",e);updateSyncIndicator("error");}
+  finally{_ghSyncing=false;}
+}
+
+let _ghSaveTimer=null;
+function scheduleGithubSave(){
+  clearTimeout(_ghSaveTimer);
+  _ghSaveTimer=setTimeout(()=>{
+    const data={aziende:S.aziende,currentAzId:S.currentAzId,sidebarOpen:S.sidebarOpen,tab:S.tab,savedAt:new Date().toISOString()};
+    githubSave(data);
+  },3000); // 3 secondi dopo l'ultima modifica
+}
+
+function updateSyncIndicator(status){
+  const el=document.getElementById("sync-indicator");
+  if(!el) return;
+  if(status==="saving"){el.innerHTML=`<i class="ti ti-cloud-upload" style="margin-right:3px;font-size:12px;"></i>Sincronizzazione…`;el.style.color="var(--text2)";}
+  else if(status==="ok"){el.innerHTML=`<i class="ti ti-cloud-check" style="margin-right:3px;font-size:12px;"></i>Sincronizzato`;el.style.color="var(--success-tc)";}
+  else if(status==="error"){el.innerHTML=`<i class="ti ti-cloud-x" style="margin-right:3px;font-size:12px;"></i>Errore sync`;el.style.color="var(--danger-tc)";}
+  else if(status==="offline"){el.innerHTML=`<i class="ti ti-cloud-off" style="margin-right:3px;font-size:12px;"></i>Solo locale`;el.style.color="var(--text2)";}
+}
+
+async function manualSync(){
+  updateSyncIndicator("saving");
+  const remote=await githubLoad();
+  if(!remote){scheduleGithubSave();return;}
+  // Confronta timestamp: prendi il più recente
+  const localTime=_lastSaved?_lastSaved.getTime():0;
+  const remoteTime=remote.savedAt?new Date(remote.savedAt).getTime():0;
+  if(remoteTime>localTime){
+    // I dati remoti sono più recenti — carica da GitHub
+    applyLoadedData(remote);
+    saveState();
+    render();
+    updateSyncIndicator("ok");
+    alert("Dati aggiornati da GitHub (versione più recente di un altro utente).");
+  } else {
+    // I dati locali sono più recenti — salva su GitHub
+    const data={aziende:S.aziende,currentAzId:S.currentAzId,sidebarOpen:S.sidebarOpen,tab:S.tab,savedAt:new Date().toISOString()};
+    await githubSave(data);
+  }
+}
+
+function saveState(){
+  try{
+    const data={
+      aziende:S.aziende,
+      currentAzId:S.currentAzId,
+      sidebarOpen:S.sidebarOpen,
+      tab:S.tab,
+      savedAt:new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+    _lastSaved=new Date();
+    updateSaveIndicator();
+  }catch(e){console.warn("Salvataggio fallito:",e);}
+}
+
+function scheduleSave(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>saveState(),800);
+  scheduleGithubSave();
+}
+
+function normalizeData(data){
+  data.aziende=data.aziende.map(a=>({
+    id:a.id||uid(),
+    nome:a.nome||"Azienda",
+    settore:a.settore||"",
+    ambiti:a.ambiti||[],
+    nuovoAmbito:"",
+    criteriPesi:a.criteriPesi||{c1:20,c2:20,c3:20,c4:20,c5:20},
+    ruoli:(a.ruoli||[]).map(r=>({
+      id:r.id||uid(),nome:r.nome||"",mult:r.mult||1.0,
+      color:r.color||RUOLI_COLORS_POOL[0],
+      valutazione:r.valutazione||{c1:null,c2:null,c3:null,c4:null,c5:null}
+    })),
+    nuovoRuoloNome:"",nuovoRuoloMult:"",
+    selectedRuoloId:a.selectedRuoloId||null,
+    posizioni:a.posizioni||[],
+    nuovaPos:{nome:"",livello:"",ruoloId:"",ambitoId:""},
+    editPosId:null
+  }));
+  return data;
+}
+
+function applyLoadedData(data){
+  const d=normalizeData(data);
+  S.aziende=d.aziende;
+  S.currentAzId=d.currentAzId||S.aziende[0].id;
+  S.sidebarOpen=d.sidebarOpen!==undefined?d.sidebarOpen:true;
+  S.tab=d.tab||0;
+  if(d.savedAt) _lastSaved=new Date(d.savedAt);
+}
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw)return false;
+    const data=JSON.parse(raw);
+    if(!data.aziende||!Array.isArray(data.aziende)||data.aziende.length===0)return false;
+    applyLoadedData(data);
+    return true;
+  }catch(e){console.warn("Caricamento fallito:",e);return false;}
+}
+
+function updateSaveIndicator(){
+  const el=document.getElementById("save-indicator");
+  if(!el)return;
+  if(_lastSaved){
+    const t=_lastSaved.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    el.textContent="✓ Salvato "+t;
+    el.style.color="var(--success-tc)";
+  }
+}
+
+function clearAllData(){
+  if(!confirm("Cancellare tutti i dati salvati e ricominciare da capo?"))return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+// ── STATO INIZIALE ───────────────────────────────────────────
+let S={
+  aziende:[newAzienda("Manifatturiera Rossi Srl","Manifatturiera")],
+  currentAzId:null,tab:0,sidebarOpen:true,
+  newAzNome:"",newAzSettore:"",editAzId:null,confirmDelAzId:null
+};
+
+// Caricamento gestito nell'INIT
+
+// ── HELPERS ──────────────────────────────────────────────────
+const az=()=>S.aziende.find(a=>a.id===S.currentAzId)||S.aziende[0];
+const azCol=(i)=>AZ_COLORS[i%AZ_COLORS.length];
+const azIdx=(id)=>S.aziende.findIndex(a=>a.id===id);
+const initials=(n)=>n.split(" ").slice(0,2).map(w=>w[0]||"").join("").toUpperCase()||"?";
+function getPesi(a){const p=a.criteriPesi;const c1=p.c1||0,c2=p.c2||0,c3=p.c3||0,c4=p.c4||0,c5=p.c5||0;const t=c1+c2+c3+c4+c5||100;return{c1:c1/t,c2:c2/t,c3:c3/t,c4:c4/t,c5:c5/t,tot:c1+c2+c3+c4+c5};}
+function getRuoloScore(a,r){const v=r.valutazione;if(v.c1==null||v.c2==null||v.c3==null||v.c4==null||v.c5==null)return null;const p=getPesi(a);return parseFloat((v.c1*p.c1+v.c2*p.c2+v.c3*p.c3+v.c4*p.c4+v.c5*p.c5).toFixed(2));}
+function getFamilyScore(a,ruolo,amb){const rs=getRuoloScore(a,ruolo);if(rs===null||!amb||amb.peso===0)return null;const ambNorm=parseFloat((((amb.peso-1)/7)*8).toFixed(4));return parseFloat((rs*0.60+ambNorm*0.40).toFixed(2));}
+function getFamilies(a){const map={};a.posizioni.forEach(p=>{if(!p.ambitoId||!p.ruoloId)return;const amb=a.ambiti.find(x=>x.id===p.ambitoId);const r=a.ruoli.find(x=>x.id===p.ruoloId);if(!amb||!r)return;const k=`${r.id}||${amb.id}`;if(!map[k])map[k]={ruolo:r,ambito:amb,posizioni:[],score:getFamilyScore(a,r,amb)};map[k].posizioni.push(p);});return Object.values(map).sort((a,b)=>(b.score||0)-(a.score||0));}
+function azProg(a){let s=0;if(a.ambiti.some(x=>x.peso>0))s++;if(a.ruoli.some(r=>getRuoloScore(a,r)!==null))s++;if(a.posizioni.length>0)s++;return s;}
+
+// ── RENDER ────────────────────────────────────────────────────
+function render(){
+  renderSidebar();
+  renderTopbar();
+  renderTabbar();
+  renderContent();
+  scheduleSave();
+}
+
+function renderSidebar(){
+  const sb=document.getElementById("sidebar");
+  sb.className="sidebar"+(S.sidebarOpen?"":" collapsed");
+  sb.innerHTML="";
+
+  const tog=mk("button","sidebar-toggle",{onclick:()=>{S.sidebarOpen=!S.sidebarOpen;render();}});
+  tog.innerHTML=`<i class="ti ti-building-factory-2"></i>${S.sidebarOpen?'<span class="sidebar-label">Aziende</span>':""}`;
+  sb.appendChild(tog);
+
+  if(S.sidebarOpen){
+    const form=mk("div","az-form");
+    const ni=mkInput("Nome azienda",S.newAzNome,e=>S.newAzNome=e.target.value,e=>{if(e.key==="Enter")doAddAz();});
+    const si=mkInput("Settore",S.newAzSettore,e=>S.newAzSettore=e.target.value,e=>{if(e.key==="Enter")doAddAz();});
+    const ab=mk("button","primary",{onclick:doAddAz});ab.textContent="+ Nuova azienda";ab.style.fontSize="11px";ab.style.padding="6px";
+    form.appendChild(ni);form.appendChild(si);form.appendChild(ab);sb.appendChild(form);
+    sb.appendChild(mk("hr","sep"));
+
+    S.aziende.forEach((a,i)=>{
+      const col=azCol(i);const isCur=a.id===S.currentAzId;const isConf=S.confirmDelAzId===a.id;
+      if(isConf){
+        const ov=mk("div","az-confirm");
+        ov.innerHTML=`<span>Eliminare?</span>`;
+        const yes=mk("button","danger-btn",{onclick:(e)=>{e.stopPropagation();doDelAz(a.id);}});yes.textContent="Sì";yes.style.fontSize="11px";yes.style.padding="3px 8px";
+        const no=mk("button","",{onclick:(e)=>{e.stopPropagation();S.confirmDelAzId=null;render();}});no.textContent="No";no.style.fontSize="11px";no.style.padding="3px 8px";
+        ov.appendChild(yes);ov.appendChild(no);sb.appendChild(ov);
+      } else {
+        const item=mk("div","az-item"+(isCur?" active":""),{onclick:()=>{S.currentAzId=a.id;S.confirmDelAzId=null;S.tab=0;render();}});
+        const av=mk("div","az-avatar");av.style.background=col.bg;av.style.color=col.tc;av.textContent=initials(a.nome);
+        const info=mk("div","az-info");
+        info.innerHTML=`<div class="az-name">${a.nome}</div><div class="az-sub">${a.settore||"—"} · ${azProg(a)}/3</div>`;
+        item.appendChild(av);item.appendChild(info);
+        if(S.aziende.length>1){const db=mk("button","del-az-btn",{onclick:(e)=>{e.stopPropagation();S.confirmDelAzId=a.id;render();}});db.innerHTML=`<i class="ti ti-trash"></i>`;item.appendChild(db);}
+        sb.appendChild(item);
+      }
+    });
+    if(S.aziende.length===1){const n=mk("p","");n.style.cssText="font-size:10px;color:var(--text2);padding:4px 6px;line-height:1.4;";n.textContent="Aggiungi un'altra azienda per abilitare l'eliminazione.";sb.appendChild(n);}
+  } else {
+    S.aziende.forEach((a,i)=>{
+      const col=azCol(i);const isCur=a.id===S.currentAzId;
+      const av=mk("div","az-avatar",{onclick:()=>{S.currentAzId=a.id;S.sidebarOpen=true;render();}});
+      av.style.cssText=`background:${col.bg};color:${col.tc};cursor:pointer;margin-bottom:5px;border:${isCur?"1.5px solid "+col.tc:"0.5px solid transparent"};`;
+      av.textContent=initials(a.nome);sb.appendChild(av);
+    });
+  }
+}
+
+function renderTopbar(){
+  const a=az();const col=azCol(azIdx(a.id));
+  const tb=document.getElementById("topbar");tb.innerHTML="";
+  const av=mk("div","az-topavatar");av.style.background=col.bg;av.style.color=col.tc;av.textContent=initials(a.nome);
+  const info=mk("div","az-topinfo");
+  if(S.editAzId===a.id){
+    const row=mk("div","");row.style.cssText="display:flex;gap:6px;";
+    const ni=mkInput(a.nome,"",e=>{az().nome=e.target.value;});ni.value=a.nome;ni.style.fontSize="13px";ni.style.fontWeight="500";
+    const si=mkInput(a.settore||"Settore","",e=>{az().settore=e.target.value;});si.value=a.settore||"";
+    const db=mk("button","",{onclick:()=>{S.editAzId=null;render();}});db.textContent="✓";db.style.padding="0 10px";
+    row.appendChild(ni);row.appendChild(si);row.appendChild(db);info.appendChild(row);
+  } else {
+    info.innerHTML=`<div class="az-topname">${a.nome}</div><div class="az-topsub">${a.settore||"Settore non definito"} · ${azProg(a)}/3 step completati</div>`;
+  }
+  const edBtn=mk("button","icon-btn",{onclick:()=>{S.editAzId=S.editAzId===a.id?null:a.id;render();}});
+  edBtn.innerHTML=`<i class="ti ${S.editAzId===a.id?'ti-check':'ti-edit'}"></i>`;
+  const expBtn=mk("button","export-btn",{onclick:()=>exportXlsx(a)});
+  expBtn.innerHTML=`<i class="ti ti-download"></i> Esporta .xlsx`;
+  // Indicatore salvataggio automatico
+  const saveInd=mk("span","");saveInd.id="save-indicator";
+  saveInd.style.cssText="font-size:10px;color:var(--text2);white-space:nowrap;margin-left:4px;";
+  saveInd.textContent=_lastSaved?"✓ Salvato "+_lastSaved.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"";
+  // Pulsante reset dati
+  const resetBtn=mk("button","icon-btn",{onclick:clearAllData});
+  resetBtn.innerHTML=`<i class="ti ti-database-x" title="Cancella tutti i dati salvati"></i>`;
+  resetBtn.title="Cancella tutti i dati e ricomincia";
+  // Sync indicator
+  const syncInd=mk("span","");syncInd.id="sync-indicator";
+  syncInd.style.cssText="font-size:10px;color:var(--text2);white-space:nowrap;margin-left:2px;display:flex;align-items:center;";
+  syncInd.innerHTML=`<i class="ti ti-cloud" style="margin-right:3px;font-size:12px;"></i>GitHub`;
+  // Sync button
+  const syncBtn=mk("button","icon-btn",{onclick:()=>manualSync()});
+  syncBtn.innerHTML=`<i class="ti ti-refresh" title="Sincronizza con GitHub"></i>`;
+  syncBtn.title="Sincronizza con GitHub";
+  tb.appendChild(av);tb.appendChild(info);tb.appendChild(saveInd);tb.appendChild(syncInd);tb.appendChild(edBtn);tb.appendChild(expBtn);tb.appendChild(syncBtn);tb.appendChild(resetBtn);
+}
+
+function renderTabbar(){
+  const bar=document.getElementById("tabbar");bar.innerHTML="";
+  ["1. Ambiti","2. Valuta ruoli","3. Posizioni","4. Famiglie","5. Graduatoria"].forEach((t,i)=>{
+    const b=mk("button","tab-btn"+(S.tab===i?" active":""),{onclick:()=>{S.tab=i;renderContent();}});
+    b.textContent=t;bar.appendChild(b);
+  });
+}
+
+function renderContent(){
+  renderTabbar();
+  scheduleSave();
+  const c=document.getElementById("content");c.innerHTML="";
+  const a=az();
+  if(S.tab===0)tabAmbiti(c,a);
+  if(S.tab===1)tabRuoli(c,a);
+  if(S.tab===2)tabPosizioni(c,a);
+  if(S.tab===3)tabFamiglie(c,a);
+  if(S.tab===4)tabGraduatoria(c,a);
+}
+
+// ── TAB 1: AMBITI ─────────────────────────────────────────────
+function tabAmbiti(c,a){
+  stepHdr(c,"1","Ambiti funzionali","Definisci quali funzioni esistono e assegna il peso strategico (0 = assente · 4 = core business). Usa il cestino per rimuovere ambiti inseriti per errore.");
+
+  // Scala
+  const sc=mk("div","card");
+  sc.appendChild(mkTitle("Scala di valutazione (0–4)"));
+  AMBITO_SCALE.forEach(s=>{
+    const bc=["","#D3D1C7","#B4B2A9","#9FE1CB","#85B7EB","#5DCAA5","#EF9F27","#D85A30","#7F77DD"][s.v];
+    const row=mk("div","scale-row");
+    row.innerHTML=`<span style="font-size:12px;font-weight:500;min-width:14px;">${s.v}</span>
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
+        <div style="width:${s.v===0?4:s.v*20}px;height:5px;border-radius:3px;background:${bc};"></div>
+        <span style="font-size:12px;font-weight:500;">${s.label}</span></div>
+        <p style="font-size:11px;color:var(--text2);line-height:1.4;">${s.desc}</p></div>`;
+    sc.appendChild(row);
+  });
+  c.appendChild(sc);
+
+  // Gestione ambiti
+  const card=mk("div","card");
+  // form aggiungi
+  const ar=mk("div","");ar.style.cssText="display:flex;gap:7px;margin-bottom:9px;";
+  const inp=mkInput("Nuovo ambito personalizzato",a.nuovoAmbito||"",e=>a.nuovoAmbito=e.target.value,e=>{if(e.key==="Enter")doAddAmbito(a);});
+  inp.style.flex="1";
+  const ab=mk("button","",{onclick:()=>doAddAmbito(a)});ab.textContent="+ Aggiungi";
+  ar.appendChild(inp);ar.appendChild(ab);card.appendChild(ar);
+
+  // preset
+  const preW=mk("div","");preW.style.marginBottom="10px";
+  const preL=mk("p","");preL.style.cssText="font-size:11px;color:var(--text2);margin-bottom:5px;";preL.textContent="Aggiungi da preset:";preW.appendChild(preL);
+  AMBITI_PRESET.forEach(p=>{
+    const already=a.ambiti.find(x=>x.nome===p);
+    const ch=mk("span","preset-chip"+(already?" used":""),{onclick:()=>{if(!already){a.ambiti.push({id:uid(),nome:p,peso:4});renderContent();}}});
+    ch.textContent=(already?"✓ ":"")+p;preW.appendChild(ch);
+  });
+  card.appendChild(preW);
+
+  if(a.ambiti.length===0){
+    const em=mk("p","empty");em.textContent="Nessun ambito. Aggiungine uno o scegli dai preset.";card.appendChild(em);
+  } else {
+    // header
+    const lh=mk("div","");lh.style.cssText="display:flex;gap:8px;padding:0 0 4px;border-bottom:0.5px solid var(--border);margin-bottom:2px;";
+    lh.innerHTML=`<span style="font-size:10px;color:var(--text2);min-width:130px;">Ambito</span><span style="font-size:10px;color:var(--text2);">Peso (0–4)</span><span style="font-size:10px;color:var(--text2);margin-left:auto;">Elimina</span>`;
+    card.appendChild(lh);
+
+    a.ambiti.forEach((amb,idx)=>{
+      const bc=["#D3D1C7","#B4B2A9","#9FE1CB","#EF9F27","#7F77DD"][amb.peso];
+      const row=mk("div","ambito-row");
+      const nl=mk("span","");nl.style.cssText="font-size:12px;font-weight:500;min-width:130px;";nl.textContent=amb.nome;row.appendChild(nl);
+      const dots=mk("div","");dots.style.cssText="display:flex;gap:3px;flex:1;";
+      [1,2,3,4,5,6,7,8].forEach(n=>{
+        const dc=["","#D3D1C7","#B4B2A9","#9FE1CB","#85B7EB","#5DCAA5","#EF9F27","#D85A30","#7F77DD"][n];
+        const d=mk("div","score-dot",{onclick:()=>{a.ambiti[idx].peso=n;renderContent();}});
+        if(amb.peso===n){d.style.background=dc;d.style.color="#fff";d.style.borderColor=dc;}
+        d.textContent=n;dots.appendChild(d);
+      });
+      row.appendChild(dots);
+      const lbl=mk("span","");lbl.style.cssText="font-size:10px;color:var(--text2);min-width:65px;";lbl.textContent=(AMBITO_SCALE.find(s=>s.v===amb.peso)||{}).label||"";row.appendChild(lbl);
+      const db=mk("button","del-row-btn",{onclick:()=>{a.posizioni=a.posizioni.filter(p=>p.ambitoId!==amb.id);a.ambiti.splice(idx,1);renderContent();}});
+      db.innerHTML=`<i class="ti ti-trash"></i>`;row.appendChild(db);
+      card.appendChild(row);
+    });
+    const nota=mk("p","nota");nota.innerHTML=`<i class="ti ti-info-circle" style="margin-right:4px;vertical-align:-1px;"></i>Eliminando un ambito vengono rimosse anche le posizioni collegate.`;card.appendChild(nota);
+  }
+  c.appendChild(card);
+  nextBtn(c,()=>{S.tab=1;renderContent();},"Procedi alla valutazione dei ruoli →");
+}
+
+// ── TAB 2: RUOLI ──────────────────────────────────────────────
+function tabRuoli(c,a){
+  stepHdr(c,"2","Valutazione ruoli","Configura i pesi dei criteri, aggiungi ruoli personalizzati e valuta ciascun ruolo sui tre criteri.");
+
+  // A: Pesi criteri
+  const pesoCard=mk("div","card");
+  pesoCard.appendChild(mkTitle("Pesi dei criteri di valutazione"));
+  const sub=mk("p","card-sub");sub.textContent="Personalizza l'importanza relativa di ciascun criterio. I valori devono sommare a 100.";pesoCard.appendChild(sub);
+  const p=getPesi(a);
+  CRITERI_BASE.forEach(crit=>{
+    const val=(a.criteriPesi[crit.id]||0);
+    const row=mk("div","");row.style.marginBottom="10px";
+    const lrow=mk("div","");lrow.style.cssText="display:flex;justify-content:space-between;margin-bottom:4px;";
+    lrow.innerHTML=`<span style="font-size:12px;font-weight:500;">${crit.label}</span><span style="font-size:12px;font-weight:500;color:${crit.barClr};">${val}%</span>`;
+    row.appendChild(lrow);
+    const sr=mk("div","");sr.style.cssText="display:flex;align-items:center;gap:10px;";
+    const sl=mk("input","");sl.type="range";sl.min=5;sl.max=90;sl.step=5;sl.value=val;
+    sl.addEventListener("input",e=>{a.criteriPesi[crit.id]=parseInt(e.target.value);renderContent();});
+    const bw=mk("div","");bw.style.cssText="width:80px;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;";
+    const bf=mk("div","");bf.style.cssText=`width:${val}%;height:6px;border-radius:4px;background:${crit.barClr};`;
+    bw.appendChild(bf);sr.appendChild(sl);sr.appendChild(bw);row.appendChild(sr);pesoCard.appendChild(row);
+  });
+  const tot=a.criteriPesi.c1+a.criteriPesi.c2+a.criteriPesi.c3+(a.criteriPesi.c4||0)+(a.criteriPesi.c5||0);const totOk=tot===100;
+  const totRow=mk("div","peso-total");totRow.style.background=totOk?"var(--success-bg)":"var(--warn-bg)";
+  totRow.innerHTML=`<span style="font-size:12px;font-weight:500;color:${totOk?"var(--success-tc)":"var(--warn-tc)"};">${totOk?"✓ Pesi bilanciati":"⚠ I pesi devono sommare a 100"}</span><span style="font-size:14px;font-weight:500;color:${totOk?"var(--success-tc)":"var(--warn-tc)"};">${tot}/100</span>`;
+  pesoCard.appendChild(totRow);
+  const rst=mk("button","",{onclick:()=>{a.criteriPesi={c1:20,c2:20,c3:20,c4:20,c5:20};renderContent();}});rst.style.cssText="margin-top:8px;font-size:11px;color:var(--text2);background:none;border:none;cursor:pointer;padding:0;";rst.textContent="↺ Ripristina default (20/20/20/20/20)";pesoCard.appendChild(rst);
+  c.appendChild(pesoCard);
+
+  // B: Gestione ruoli
+  const ruoliCard=mk("div","card");
+  ruoliCard.appendChild(mkTitle("Ruoli organizzativi"));
+  const rs=mk("p","card-sub");rs.textContent="Aggiungi ruoli personalizzati o elimina quelli non presenti. Clicca su un ruolo per selezionarlo e valutarlo.";ruoliCard.appendChild(rs);
+
+  const ar=mk("div","");ar.style.cssText="display:flex;gap:6px;margin-bottom:10px;align-items:flex-end;";
+  const nrW=mk("div","form-field");nrW.style.flex="2";nrW.innerHTML=`<label>Nome ruolo</label>`;
+  const nrI=mkInput("es. Junior, Senior, Team Leader…",a.nuovoRuoloNome||"",e=>a.nuovoRuoloNome=e.target.value,e=>{if(e.key==="Enter")doAddRuolo(a);});nrW.appendChild(nrI);
+  const nmW=mk("div","form-field");nmW.style.flex="1";nmW.innerHTML=`<label>Moltiplicatore</label>`;
+  const nmI=mkInput("es. 1.4",a.nuovoRuoloMult||"",e=>a.nuovoRuoloMult=e.target.value,e=>{if(e.key==="Enter")doAddRuolo(a);});nmW.appendChild(nmI);
+  const addRBtn=mk("button","",{onclick:()=>doAddRuolo(a)});addRBtn.textContent="+ Aggiungi";addRBtn.style.flexShrink="0";
+  ar.appendChild(nrW);ar.appendChild(nmW);ar.appendChild(addRBtn);ruoliCard.appendChild(ar);
+
+  const lhR=mk("div","");lhR.style.cssText="display:flex;gap:8px;padding:0 0 4px;border-bottom:0.5px solid var(--border);margin-bottom:2px;font-size:10px;color:var(--text2);";
+  lhR.innerHTML=`<span style="min-width:110px;">Ruolo</span><span style="flex:1;">Valutazione</span><span style="min-width:50px;text-align:center;">Mult.</span><span style="min-width:68px;text-align:center;">Val. ruolo</span><span style="min-width:80px;text-align:center;">Punteggio finale</span><span style="min-width:40px;text-align:right;">Elim.</span>`;
+  ruoliCard.appendChild(lhR);
+
+  a.ruoli.forEach((ruolo,ri)=>{
+    const sc=getRuoloScore(a,ruolo);const colR=ruolo.color||RUOLI_COLORS_POOL[0];const isSel=a.selectedRuoloId===ruolo.id;
+    const row=mk("div","ruolo-row",{onclick:()=>{a.selectedRuoloId=ruolo.id;renderContent();}});
+    if(isSel){row.style.background=colR.bg;}
+    // Nome ruolo — input diretto sempre visibile
+    const np=mk("input","");
+    np.value=ruolo.nome;
+    np.style.cssText=`width:110px;font-size:11px;font-weight:500;padding:3px 8px;border-radius:var(--radius);border:0.5px solid ${colR.bar};background:${colR.bg};color:${colR.tc};cursor:text;`;
+    np.addEventListener("change",(e)=>{const v=e.target.value.trim();if(v){ruolo.nome=v;renderContent();}});
+    np.addEventListener("keydown",(e)=>{if(e.key==="Enter")e.target.blur();});
+    np.addEventListener("click",(e)=>e.stopPropagation());
+    row.appendChild(np);
+    const bw=mk("div","");bw.style.flex="1";
+    if(sc!==null){bw.innerHTML=`<div class="bar-bg"><div class="bar-fill" style="width:${Math.round((sc/8)*100)}%;background:${colR.bar};"></div></div>`;}
+    else{bw.innerHTML=`<span style="font-size:10px;color:var(--text2);">non valutato</span>`;}
+    row.appendChild(bw);
+    // Moltiplicatore — input numerico diretto sempre visibile
+    const me=mk("input","");
+    me.type="number";me.step="0.1";me.min="0.1";me.max="10";
+    me.value=parseFloat(ruolo.mult).toFixed(1);
+    me.style.cssText="width:52px;font-size:11px;font-weight:500;padding:3px 4px;border-radius:var(--radius);border:0.5px solid var(--border2);text-align:center;background:var(--bg);color:var(--text);";
+    me.addEventListener("change",(e)=>{const v=parseFloat(e.target.value);if(v>0){ruolo.mult=v;renderContent();}});
+    me.addEventListener("keydown",(e)=>{if(e.key==="Enter")e.target.blur();});
+    me.addEventListener("click",(e)=>e.stopPropagation());
+    row.appendChild(me);
+    const se=mk("span","");se.style.cssText=`font-size:11px;font-weight:500;min-width:68px;text-align:center;color:${sc!==null?colR.tc:"var(--text2)"};`;se.textContent=sc!==null?sc.toFixed(2):"—";row.appendChild(se);
+    const pf=mk("span","");pf.style.cssText=`font-size:11px;font-weight:600;min-width:80px;text-align:center;color:${sc!==null?colR.tc:"var(--text2)"};`;pf.textContent=sc!==null?(sc*parseFloat(ruolo.mult)).toFixed(2):"—";row.appendChild(pf);
+    const db=mk("button","del-row-btn",{onclick:(e)=>{e.stopPropagation();a.posizioni=a.posizioni.filter(p=>p.ruoloId!==ruolo.id);a.ruoli.splice(ri,1);if(a.selectedRuoloId===ruolo.id)a.selectedRuoloId=a.ruoli[0]?.id||null;renderContent();}});
+    db.innerHTML=`<i class="ti ti-trash"></i>`;row.appendChild(db);
+    ruoliCard.appendChild(row);
+  });
+  c.appendChild(ruoliCard);
+
+  // C: Valutazione ruolo selezionato
+  const selR=a.ruoli.find(r=>r.id===a.selectedRuoloId)||a.ruoli[0];
+  if(!selR){const em=mk("p","empty");em.textContent="Aggiungi almeno un ruolo.";c.appendChild(em);return;}
+  const colSel=selR.color||RUOLI_COLORS_POOL[0];
+  const pesi=getPesi(a);
+  const valCard=mk("div","card");valCard.style.borderColor=colSel.bar;
+  const vh=mk("div","");vh.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:12px;";
+  vh.innerHTML=`<span style="font-size:14px;font-weight:500;">Valutazione —</span><span class="badge" style="background:${colSel.bg};color:${colSel.tc};font-size:13px;">${selR.nome}</span><span style="font-size:11px;color:var(--text2);margin-left:auto;">Clicca un ruolo sopra per cambiare</span>`;
+  valCard.appendChild(vh);
+
+  CRITERI_BASE.forEach(crit=>{
+    const pesoEff=Math.round((crit.id==="c1"?pesi.c1:crit.id==="c2"?pesi.c2:crit.id==="c3"?pesi.c3:crit.id==="c4"?pesi.c4:pesi.c5)*100);
+    const sec=mk("div","");sec.style.marginBottom="12px";
+    const sh=mk("div","");sh.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;";
+    sh.innerHTML=`<p style="font-size:12px;font-weight:500;">${crit.label}</p><span class="badge" style="background:${crit.barClr}22;color:${crit.barClr};">peso effettivo ${pesoEff}%</span>`;
+    sec.appendChild(sh);
+    crit.scale.forEach(s=>{
+      const active=selR.valutazione[crit.id]===s.v;
+      const opt=mk("div","crit-option",{onclick:()=>{selR.valutazione[crit.id]=s.v;renderContent();}});
+      if(active){opt.style.background=colSel.bg;opt.style.borderColor=colSel.bar;}
+      opt.innerHTML=`<div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;background:${active?colSel.bar:"var(--bg2)"};color:${active?"#fff":"var(--text2)"};">${s.v}</div>
+        <div><p style="font-size:12px;font-weight:500;color:${active?colSel.tc:"var(--text)"};margin-bottom:1px;">${s.label}</p>
+        <p style="font-size:11px;color:${active?colSel.tc:"var(--text2)"};line-height:1.4;">${s.desc}</p></div>`;
+      sec.appendChild(opt);
+    });
+    const cv=selR.valutazione[crit.id];
+    if(cv!=null){const n=mk("p","nota");n.textContent=`Contributo: ${(cv*(crit.id==="c1"?pesi.c1:crit.id==="c2"?pesi.c2:crit.id==="c3"?pesi.c3:crit.id==="c4"?pesi.c4:pesi.c5)).toFixed(2)} (punteggio ${cv} × peso ${pesoEff}%)`;sec.appendChild(n);}
+    valCard.appendChild(sec);
+  });
+
+  const scFin=getRuoloScore(a,selR);
+  const sumRow=mk("div","");sumRow.style.cssText=`display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:var(--radius);background:${colSel.bg};border:0.5px solid ${colSel.bar};`;
+  sumRow.innerHTML=`<div><p style="font-size:12px;color:${colSel.tc};margin-bottom:1px;">Punteggio finale — ${selR.nome}</p><p style="font-size:11px;color:${colSel.tc};opacity:.7;">${scFin!==null?"Σ (criteri × pesi)":"Completa i cinque criteri"}</p></div><span style="font-size:22px;font-weight:500;color:${colSel.tc};">${scFin!==null?scFin.toFixed(2)+" / 8,00":"—"}</span>`;
+  valCard.appendChild(sumRow);
+  c.appendChild(valCard);
+  nextBtn(c,()=>{S.tab=2;renderContent();},"Procedi all'inserimento posizioni →");
+}
+
+// ── TAB 3: POSIZIONI ──────────────────────────────────────────
+function tabPosizioni(c,a){
+  stepHdr(c,"3","Posizioni aziendali","Assegna ogni posizione a un ambito e a un ruolo. La famiglia nasce dall'incrocio dei due.");
+  const ambitiA=a.ambiti.filter(x=>x.peso>0);const ruoliA=a.ruoli.filter(r=>getRuoloScore(a,r)!==null);
+  if(ambitiA.length===0||ruoliA.length===0){
+    const w=mk("div","alert alert-warn");w.innerHTML=`<i class="ti ti-alert-triangle" style="margin-right:5px;"></i>${ambitiA.length===0?"Definisci almeno un ambito con peso > 0 (scheda 1). ":""}${ruoliA.length===0?"Valuta almeno un ruolo (scheda 2).":""}`;c.appendChild(w);
+  }
+  const form=mk("div","card");form.appendChild(mkTitle(a.editPosId?"Modifica posizione":"Aggiungi posizione"));
+  const grid=mk("div","form-grid");grid.style.gridTemplateColumns="1fr 0.7fr 0.7fr 1fr auto";
+  // Nome
+  const nW=mk("div","form-field");nW.innerHTML=`<label>Nome posizione</label>`;const nI=mkInput("es. Tecnico CNC senior",a.nuovaPos.nome||"",e=>a.nuovaPos.nome=e.target.value,e=>{if(e.key==="Enter")doSavePos(a);});nW.appendChild(nI);grid.appendChild(nW);
+  // Livello inquadramento
+  const lW=mk("div","form-field");lW.innerHTML=`<label>Livello inquadramento</label>`;const lI=mkInput("es. 3° livello",a.nuovaPos.livello||"",e=>a.nuovaPos.livello=e.target.value,e=>{if(e.key==="Enter")doSavePos(a);});lW.appendChild(lI);grid.appendChild(lW);
+  // Ruolo
+  const rW=mk("div","form-field");rW.innerHTML=`<label>Ruolo</label>`;const rSel=mk("select","");
+  rSel.appendChild(Object.assign(mk("option",""),{value:"",textContent:"— Scegli —"}));
+  a.ruoli.forEach(r=>{const o=mk("option","");o.value=r.id;o.textContent=r.nome;if(a.nuovaPos.ruoloId===r.id)o.selected=true;rSel.appendChild(o);});
+  rSel.addEventListener("change",e=>a.nuovaPos.ruoloId=e.target.value);rW.appendChild(rSel);grid.appendChild(rW);
+  // Ambito
+  const aW=mk("div","form-field");aW.innerHTML=`<label>Ambito</label>`;const aSel=mk("select","");
+  aSel.appendChild(Object.assign(mk("option",""),{value:"",textContent:"— Scegli —"}));
+  ambitiA.forEach(x=>{const o=mk("option","");o.value=x.id;o.textContent=x.nome;if(a.nuovaPos.ambitoId===x.id)o.selected=true;aSel.appendChild(o);});
+  aSel.addEventListener("change",e=>a.nuovaPos.ambitoId=e.target.value);aW.appendChild(aSel);grid.appendChild(aW);
+  const sB=mk("button","",{onclick:()=>doSavePos(a)});sB.textContent=a.editPosId?"Salva":"+ Aggiungi";sB.style.alignSelf="end";grid.appendChild(sB);
+  form.appendChild(grid);
+  if(a.editPosId){const can=mk("button","");can.style.cssText="margin-top:7px;font-size:11px;color:var(--text2);background:none;border:none;cursor:pointer;padding:0;";can.textContent="Annulla";can.onclick=()=>{a.editPosId=null;a.nuovaPos={nome:"",livello:"",ruoloId:"",ambitoId:""};renderContent();};form.appendChild(can);}
+  c.appendChild(form);
+
+  // ── CARD IMPORTA DA EXCEL ──
+  const impCard=mk("div","card");
+  impCard.innerHTML=`<p class="card-title" style="margin-bottom:4px;">Importa posizioni da Excel</p>
+    <p class="card-sub">Il file deve avere quattro colonne nell'ordine: <strong>Nome posizione</strong>, <strong>Livello inquadramento</strong>, <strong>Ruolo</strong>, <strong>Ambito</strong>.
+    Il sistema abbina automaticamente ambito e ruolo ai valori già presenti in questa azienda (corrispondenza non sensibile a maiuscole/spazi).
+    Le righe non abbinate vengono segnalate.</p>`;
+
+  const impRow=mk("div","");impRow.style.cssText="display:flex;gap:8px;align-items:center;flex-wrap:wrap;";
+
+  // Bottone scarica template
+  const tplBtn=mk("button","",{onclick:()=>downloadTemplate(a)});
+  tplBtn.innerHTML=`<i class="ti ti-table-export" style="margin-right:5px;font-size:13px;"></i>Scarica template .xlsx`;
+  tplBtn.title="Scarica un file Excel di esempio già formattato";
+
+  // Input file nascosto
+  const fileInput=mk("input","");fileInput.type="file";fileInput.accept=".xlsx,.xls,.csv";
+  fileInput.style.display="none";fileInput.id="import-file-input";
+  fileInput.addEventListener("change",e=>{
+    const file=e.target.files[0];if(!file)return;
+    doImportXls(a,file,impCard);
+    fileInput.value=""; // reset so same file can be re-imported
+  });
+
+  // Bottone importa
+  const impBtn=mk("button","primary",{onclick:()=>document.getElementById("import-file-input").click()});
+  impBtn.innerHTML=`<i class="ti ti-upload" style="margin-right:5px;font-size:13px;"></i>Importa file Excel`;
+
+  impRow.appendChild(tplBtn);impRow.appendChild(impBtn);impRow.appendChild(fileInput);
+  impCard.appendChild(impRow);
+
+  // Area risultati import (si popola dopo l'importazione)
+  const impResult=mk("div","");impResult.id="import-result";impResult.style.marginTop="10px";
+  impCard.appendChild(impResult);
+  c.appendChild(impCard);
+
+  if(a.posizioni.length===0){const em=mk("p","empty");em.textContent="Nessuna posizione. Aggiungila manualmente o importa da Excel.";c.appendChild(em);}
+  a.posizioni.forEach((p,idx)=>{
+    const amb=a.ambiti.find(x=>x.id===p.ambitoId);const ruolo=a.ruoli.find(x=>x.id===p.ruoloId);
+    const colR=ruolo?ruolo.color:{bg:"#F1EFE8",tc:"#444441"};const sc=amb&&ruolo?getFamilyScore(a,ruolo,amb):null;
+    const row=mk("div","row-item");
+    const info=mk("div","");info.style.flex="1";info.innerHTML=`<p style="font-size:13px;font-weight:500;">${p.nome}</p><p style="font-size:11px;color:var(--text2);">${p.livello?'<span style="background:var(--bg2);border-radius:3px;padding:1px 5px;">'+p.livello+'</span> · ':""} ${ruolo?ruolo.nome:"⚠ Ruolo mancante"} · ${amb?amb.nome:"⚠ Ambito mancante"}</p>`;
+    row.appendChild(info);
+    const b=mk("span","badge");b.style.cssText=`background:${colR.bg};color:${colR.tc};`;b.textContent=ruolo?ruolo.nome:"—";row.appendChild(b);
+    const sv=mk("span","");sv.style.cssText="font-size:11px;color:var(--text2);min-width:30px;text-align:right;";sv.textContent=sc!==null?sc.toFixed(2):"—";row.appendChild(sv);
+    const ed=mk("button","icon-btn",{onclick:()=>{a.editPosId=p.id;a.nuovaPos={nome:p.nome,livello:p.livello||"",ruoloId:p.ruoloId||"",ambitoId:p.ambitoId||""};renderContent();}});ed.innerHTML=`<i class="ti ti-edit"></i>`;
+    const dl=mk("button","icon-btn danger",{onclick:()=>{a.posizioni.splice(idx,1);renderContent();}});dl.innerHTML=`<i class="ti ti-trash"></i>`;
+    row.appendChild(ed);row.appendChild(dl);c.appendChild(row);
+  });
+  const cnt=mk("p","");cnt.style.cssText="font-size:11px;color:var(--text2);margin-top:5px;";cnt.textContent=`${a.posizioni.length} posizioni`;c.appendChild(cnt);
+  nextBtn(c,()=>{S.tab=3;renderContent();},"Visualizza famiglie →");
+}
+
+// ── TAB 4: FAMIGLIE ──────────────────────────────────────────
+function tabFamiglie(c,a){
+  stepHdr(c,"4","Famiglie professionali","Stesso ruolo + stesso ambito = stessa famiglia. La differenza interna è data dalle competenze tecnico-professionali specifiche.");
+  const fams=getFamilies(a);
+  if(fams.length===0){const em=mk("p","empty");em.textContent="Nessuna famiglia popolata.";c.appendChild(em);return;}
+  fams.forEach(f=>{
+    const colR=f.ruolo.color||RUOLI_COLORS_POOL[0];
+    const card=mk("div","card");
+    card.innerHTML=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px;">
+      <div><p style="font-size:14px;font-weight:500;">${f.ruolo.nome} <span style="color:var(--text2);font-weight:400;">— ${f.ambito.nome}</span></p>
+      <p style="font-size:11px;color:var(--text2);margin-top:2px;">${f.posizioni.length} posizione${f.posizioni.length>1?"i":""} · punteggio ${f.score!==null?f.score.toFixed(2):"—"}</p></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+        <span class="badge" style="background:${colR.bg};color:${colR.tc};">${f.ruolo.nome}</span>
+        <span class="badge" style="background:var(--bg2);color:var(--text2);">×${parseFloat(f.ruolo.mult).toFixed(1)}</span></div></div>`;
+    const chips=mk("div","");chips.style.cssText="display:flex;flex-wrap:wrap;gap:5px;";
+    f.posizioni.forEach(p=>{const ch=mk("span","chip");ch.textContent=p.nome;chips.appendChild(ch);});
+    card.appendChild(chips);c.appendChild(card);
+  });
+}
+
+// ── TAB 5: GRADUATORIA ───────────────────────────────────────
+function tabGraduatoria(c,a){
+  stepHdr(c,"5","Graduatoria famiglie","Classifica per punteggio composito = (punteggio ruolo × 0,60) + (peso ambito × 0,40).");
+  const fams=getFamilies(a).filter(f=>f.score!==null);
+  if(fams.length===0){const em=mk("p","empty");em.textContent="Nessuna famiglia con punteggio calcolabile.";c.appendChild(em);return;}
+  const maxS=fams[0].score;
+  fams.forEach((f,i)=>{
+    const colR=f.ruolo.color||RUOLI_COLORS_POOL[0];const pct=Math.round((f.score/maxS)*100);
+    const row=mk("div","row-item");
+    row.innerHTML=`<span style="font-size:13px;color:var(--text2);min-width:22px;text-align:center;font-weight:500;">${i+1}</span>
+      <div style="flex:1;"><p style="font-size:13px;font-weight:500;margin-bottom:4px;">${f.ruolo.nome} <span style="font-weight:400;color:var(--text2);">— ${f.ambito.nome}</span></p>
+        <div style="display:flex;align-items:center;gap:7px;"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${colR.bar};"></div></div>
+        <span style="font-size:11px;font-weight:500;min-width:26px;">${f.score.toFixed(2)}</span></div></div>
+      <span class="badge" style="background:${colR.bg};color:${colR.tc};font-size:10px;">×${parseFloat(f.ruolo.mult).toFixed(1)}</span>
+      <span style="font-size:11px;color:var(--text2);min-width:40px;text-align:right;">${f.posizioni.length} pos.</span>`;
+    c.appendChild(row);
+  });
+  const pp=getPesi(a);
+  const nota=mk("div","nota");nota.style.marginTop=".85rem";
+  nota.innerHTML=`Pesi criteri applicati: Autonomia ${Math.round(pp.c1*100)}% · Visione sistemica ${Math.round(pp.c2*100)}% · Risorse ${Math.round(pp.c3*100)}% · Rapporti esterni ${Math.round(pp.c4*100)}% · Conoscenze ${Math.round(pp.c5*100)}%<br>Documenta pesi e criteri in un verbale firmato dal management per la compliance pay transparency.`;
+  c.appendChild(nota);
+}
+
+// ── IMPORT XLS ───────────────────────────────────────────────
+function normalize(s){return(s||"").toString().trim().toLowerCase().replace(/\s+/g," ");}
+
+function fuzzyMatch(val,list,key){
+  const nv=normalize(val);
+  // exact
+  let m=list.find(x=>normalize(x[key])===nv);
+  if(m)return m;
+  // starts with
+  m=list.find(x=>normalize(x[key]).startsWith(nv)||nv.startsWith(normalize(x[key])));
+  if(m)return m;
+  // contains
+  m=list.find(x=>normalize(x[key]).includes(nv)||nv.includes(normalize(x[key])));
+  return m||null;
+}
+
+function downloadTemplate(a){
+  const wb=XLSX.utils.book_new();
+  const header=[["Nome posizione","Livello inquadramento","Ruolo","Ambito"]];
+  // example rows using actual ambiti/ruoli if present
+  const ambitiEx=a.ambiti.filter(x=>x.peso>0).slice(0,3).map(x=>x.nome);
+  const ruoliEx=a.ruoli.slice(0,3).map(r=>r.nome);
+  const rows=[];
+  for(let i=0;i<Math.max(ambitiEx.length,ruoliEx.length,3);i++){
+    rows.push([
+      `Posizione esempio ${i+1}`,
+      "(es. 3° livello, Quadro, A2)",
+      ruoliEx[i]||"(nome ruolo esatto)",
+      ambitiEx[i]||"(nome ambito esatto)"
+    ]);
+  }
+  const ws=XLSX.utils.aoa_to_sheet([...header,...rows]);
+  ws["!cols"]=[{wch:30},{wch:24},{wch:20},{wch:22}];
+  // Style header row bold (openpyxl not available in browser — just set freeze)
+  ws["!freeze"]={xSplit:0,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,ws,"Posizioni");
+  // Second sheet: reference lists
+  const refRows=[["AMBITI DISPONIBILI","","RUOLI DISPONIBILI"],
+    ...Array.from({length:Math.max(a.ambiti.length,a.ruoli.length)},(_,i)=>[
+      a.ambiti[i]?a.ambiti[i].nome:"",
+      "",
+      a.ruoli[i]?a.ruoli[i].nome:""
+    ])
+  ];
+  const ws2=XLSX.utils.aoa_to_sheet(refRows);
+  ws2["!cols"]=[{wch:24},{wch:4},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws2,"Valori di riferimento");
+  XLSX.writeFile(wb,"template_posizioni.xlsx");
+}
+
+function doImportXls(a,file,cardEl){
+  const resultEl=cardEl.querySelector("#import-result");
+  resultEl.innerHTML=`<p style="font-size:12px;color:var(--text2);">Lettura file in corso…</p>`;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:"binary"});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      if(rows.length<2){resultEl.innerHTML=`<p style="font-size:12px;color:var(--danger-tc);">File vuoto o senza dati.</p>`;return;}
+
+      // detect header row
+      let startRow=0;
+      const h0=normalize(rows[0][0]||"");
+      if(h0.includes("nome")||h0.includes("posiz")||h0.includes("name")) startRow=1;
+
+      const ambitiAttivi=a.ambiti.filter(x=>x.peso>0);
+      let imported=0,skippedNoName=0;
+      const unmatched=[];
+
+      for(let i=startRow;i<rows.length;i++){
+        const row=rows[i];
+        const nomePosiz=(row[0]||"").toString().trim();
+        const livelloRaw=(row[1]||"").toString().trim();
+        const ruoloRaw=(row[2]||"").toString().trim();
+        const ambitoRaw=(row[3]||"").toString().trim();
+        if(!nomePosiz){skippedNoName++;continue;}
+
+        const matchAmb=fuzzyMatch(ambitoRaw,ambitiAttivi,"nome");
+        const matchRuolo=fuzzyMatch(ruoloRaw,a.ruoli,"nome");
+
+        if(!matchAmb||!matchRuolo){
+          unmatched.push({riga:i+1,nome:nomePosiz,ambito:ambitoRaw,ruolo:ruoloRaw,errAmb:!matchAmb,errRuolo:!matchRuolo});
+          continue;
+        }
+        // evita duplicati (stesso nome + stesso ambito + stesso ruolo)
+        const exists=a.posizioni.find(p=>normalize(p.nome)===normalize(nomePosiz)&&p.ambitoId===matchAmb.id&&p.ruoloId===matchRuolo.id);
+        if(!exists){
+          a.posizioni.push({id:uid(),nome:nomePosiz,livello:livelloRaw,ambitoId:matchAmb.id,ruoloId:matchRuolo.id});
+          imported++;
+        }
+      }
+
+      // Build result HTML
+      let html="";
+      if(imported>0) html+=`<div class="alert" style="background:var(--success-bg);color:var(--success-tc);margin-bottom:6px;"><i class="ti ti-check" style="margin-right:5px;"></i><strong>${imported}</strong> posizione${imported>1?"i":""} importate con successo.</div>`;
+      if(skippedNoName>0) html+=`<div class="alert" style="background:var(--warn-bg);color:var(--warn-tc);margin-bottom:6px;"><i class="ti ti-alert-triangle" style="margin-right:5px;"></i>${skippedNoName} righe senza nome ignorate.</div>`;
+      if(unmatched.length>0){
+        html+=`<div class="alert" style="background:var(--warn-bg);color:var(--warn-tc);margin-bottom:6px;">
+          <p style="font-weight:500;margin-bottom:5px;"><i class="ti ti-alert-triangle" style="margin-right:5px;"></i>${unmatched.length} righe non abbinate — verifica manualmente:</p>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <tr style="border-bottom:0.5px solid rgba(0,0,0,.1);">
+              <th style="text-align:left;padding:3px 5px;">Riga</th>
+              <th style="text-align:left;padding:3px 5px;">Nome</th>
+              <th style="text-align:left;padding:3px 5px;">Ambito</th>
+              <th style="text-align:left;padding:3px 5px;">Ruolo</th>
+              <th style="text-align:left;padding:3px 5px;">Problema</th>
+            </tr>
+            ${unmatched.map(u=>`<tr style="border-bottom:0.5px solid rgba(0,0,0,.07);">
+              <td style="padding:3px 5px;">${u.riga}</td>
+              <td style="padding:3px 5px;">${u.nome}</td>
+              <td style="padding:3px 5px;${u.errAmb?"color:var(--danger-tc);font-weight:500;":""}">${u.ambito||"(vuoto)"}</td>
+              <td style="padding:3px 5px;${u.errRuolo?"color:var(--danger-tc);font-weight:500;":""}">${u.ruolo||"(vuoto)"}</td>
+              <td style="padding:3px 5px;">${[u.errAmb?"ambito non trovato":"",u.errRuolo?"ruolo non trovato":""].filter(Boolean).join(", ")}</td>
+            </tr>`).join("")}
+          </table>
+          <p style="margin-top:6px;font-size:11px;">Controlla che i nomi di ambito e ruolo nel file corrispondano esattamente a quelli definiti in questa azienda. Usa il template per avere i valori corretti.</p>
+        </div>`;
+      }
+      if(imported===0&&unmatched.length===0&&skippedNoName===rows.length-startRow){
+        html=`<p style="font-size:12px;color:var(--text2);">Nessuna riga valida trovata nel file.</p>`;
+      }
+      resultEl.innerHTML=html;
+      renderContent();
+    }catch(err){
+      resultEl.innerHTML=`<div class="alert" style="background:var(--danger-bg);color:var(--danger-tc);">Errore nella lettura del file: ${err.message}</div>`;
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────
+function doAddAz(){const n=S.newAzNome.trim();if(!n)return;const a=newAzienda(n,S.newAzSettore.trim());S.aziende.push(a);S.currentAzId=a.id;S.newAzNome="";S.newAzSettore="";S.tab=0;render();}
+function doDelAz(id){if(S.aziende.length===1)return;S.aziende=S.aziende.filter(a=>a.id!==id);if(S.currentAzId===id)S.currentAzId=S.aziende[0].id;S.confirmDelAzId=null;S.tab=0;render();}
+function doAddAmbito(a){const v=(a.nuovoAmbito||"").trim();if(!v)return;if(a.ambiti.find(x=>x.nome.toLowerCase()===v.toLowerCase()))return;a.ambiti.push({id:uid(),nome:v,peso:4});a.nuovoAmbito="";renderContent();}
+function doAddRuolo(a){const nome=(a.nuovoRuoloNome||"").trim();if(!nome)return;const mult=parseFloat(a.nuovoRuoloMult)||1.0;const ruolo={id:uid(),nome,mult,color:RUOLI_COLORS_POOL[a.ruoli.length%RUOLI_COLORS_POOL.length],valutazione:{c1:null,c2:null,c3:null,c4:null,c5:null}};a.ruoli.push(ruolo);a.selectedRuoloId=ruolo.id;a.nuovoRuoloNome="";a.nuovoRuoloMult="";renderContent();}
+function doSavePos(a){const{nome,livello,ambitoId,ruoloId}=a.nuovaPos;if(!nome.trim()||!ambitoId||!ruoloId)return;if(a.editPosId){a.posizioni=a.posizioni.map(p=>p.id===a.editPosId?{...p,nome,livello:livello||p.livello||"",ambitoId,ruoloId}:p);a.editPosId=null;}else a.posizioni.push({id:uid(),nome,livello:livello||"" ,ambitoId,ruoloId});a.nuovaPos={nome:"",livello:"",ruoloId:"",ambitoId:""};renderContent();}
+
+// ── EXPORT ───────────────────────────────────────────────────
+function exportXlsx(a){
+  const wb=XLSX.utils.book_new();const p=getPesi(a);
+  const ws0=XLSX.utils.aoa_to_sheet([["Criterio","Peso impostato (%)","Peso effettivo"],
+    ["Autonomia decisionale",a.criteriPesi.c1,Math.round(p.c1*100)+"%"],
+    ["Visione sistemica organizzativa",a.criteriPesi.c2,Math.round(p.c2*100)+"%"],
+    ["Risorse gestite",a.criteriPesi.c3,Math.round(p.c3*100)+"%"],
+    ["Rapporti con l'esterno",a.criteriPesi.c4,Math.round(p.c4*100)+"%"],
+    ["Conoscenze tecnico-professionali",a.criteriPesi.c5,Math.round(p.c5*100)+"%"],
+    ["TOTALE",a.criteriPesi.c1+a.criteriPesi.c2+a.criteriPesi.c3+a.criteriPesi.c4+a.criteriPesi.c5,"100%"]]);
+  ws0["!cols"]=[{wch:42},{wch:20},{wch:16}];XLSX.utils.book_append_sheet(wb,ws0,"Pesi criteri");
+  const ws1=XLSX.utils.aoa_to_sheet([["Ambito","Peso strategico (0–4)","Scala"],...a.ambiti.map(x=>[x.nome,x.peso,(AMBITO_SCALE.find(s=>s.v===x.peso)||{}).label||""])]);
+  ws1["!cols"]=[{wch:22},{wch:20},{wch:20}];XLSX.utils.book_append_sheet(wb,ws1,"Ambiti");
+  const ws2=XLSX.utils.aoa_to_sheet([["Ruolo","C1 Autonomia","C2 Visione sistemica","C3 Risorse","C4 Rapporti esterni","C5 Conoscenze","Punteggio","Moltiplicatore"],...a.ruoli.map(r=>{const v=r.valutazione;const sc=getRuoloScore(a,r);return[r.nome,v.c1||"—",v.c2||"—",v.c3||"—",v.c4||"—",v.c5||"—",sc!=null?sc:"—",`×${parseFloat(r.mult).toFixed(1)}`];})]);
+  ws2["!cols"]=[{wch:18},{wch:16},{wch:20},{wch:14},{wch:18},{wch:16},{wch:14},{wch:12}];XLSX.utils.book_append_sheet(wb,ws2,"Valutazione ruoli");
+  const ws3=XLSX.utils.aoa_to_sheet([["Nome posizione","Livello inquadramento","Ruolo","Ambito","Famiglia professionale","Punteggio famiglia","Moltiplicatore"],...a.posizioni.map(p=>{const amb=a.ambiti.find(x=>x.id===p.ambitoId);const r=a.ruoli.find(x=>x.id===p.ruoloId);const sc=amb&&r?getFamilyScore(a,r,amb):null;return[p.nome,p.livello||"",r?r.nome:"N/A",amb?amb.nome:"N/A",amb&&r?`${r.nome} – ${amb.nome}`:"N/A",sc!=null?sc:"—",r?`×${parseFloat(r.mult).toFixed(1)}`:"—"];})]);
+  ws3["!cols"]=[{wch:28},{wch:20},{wch:16},{wch:18},{wch:30},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,ws3,"Posizioni");
+  const fams=getFamilies(a).filter(f=>f.score!==null);
+  const ws4=XLSX.utils.aoa_to_sheet([["Rank","Famiglia professionale","Ruolo","Ambito","Posizioni","N. posizioni","Punteggio composito","Moltiplicatore"],...fams.map((f,i)=>[i+1,`${f.ruolo.nome} – ${f.ambito.nome}`,f.ruolo.nome,f.ambito.nome,f.posizioni.map(p=>p.nome).join(", "),f.posizioni.length,f.score,`×${parseFloat(f.ruolo.mult).toFixed(1)}`])]);
+  ws4["!cols"]=[{wch:5},{wch:34},{wch:16},{wch:18},{wch:44},{wch:12},{wch:16},{wch:12}];XLSX.utils.book_append_sheet(wb,ws4,"Graduatoria famiglie");
+  XLSX.writeFile(wb,`famiglie_${a.nome.replace(/\s+/g,"_")}.xlsx`);
+}
+
+// ── UI HELPERS ───────────────────────────────────────────────
+function mk(tag,cls,props={}){
+  const e=document.createElement(tag);
+  if(cls)e.className=cls;
+  Object.entries(props).forEach(([k,v])=>{
+    if(k.startsWith("on"))e[k]=v;
+    else e.setAttribute(k,v);
+  });
+  return e;
+}
+function mkInput(placeholder,value,oninput,onkeydown){
+  const i=mk("input","");i.placeholder=placeholder;i.value=value;
+  i.addEventListener("input",oninput);
+  if(onkeydown)i.addEventListener("keydown",onkeydown);
+  return i;
+}
+function mkTitle(txt){const p=mk("p","card-title");p.textContent=txt;return p;}
+function stepHdr(c,n,t,d){
+  const h=mk("div","step-hdr");
+  const r=mk("div","step-hdr-row");
+  const num=mk("span","step-num");num.textContent=n;
+  const ti=mk("span","step-title");ti.textContent=t;
+  r.appendChild(num);r.appendChild(ti);h.appendChild(r);
+  const ds=mk("p","step-desc");ds.textContent=d;h.appendChild(ds);
+  c.appendChild(h);
+}
+function nextBtn(c,fn,lbl){const b=mk("button","next-btn",{onclick:fn});b.textContent=lbl;c.appendChild(b);}
+
+// ── INIT ────────────────────────────────────────────────────
+// Prima carica locale per mostrare subito l'UI, poi sincronizza con GitHub
+if(!loadState()){S.currentAzId=S.aziende[0].id;}
+render();
+updateSyncIndicator("offline");
+
+// Poi tenta di caricare da GitHub in background
+(async()=>{
+  const remote=await githubLoad();
+  if(!remote){updateSyncIndicator("offline");return;}
+  const localTime=_lastSaved?_lastSaved.getTime():0;
+  const remoteTime=remote.savedAt?new Date(remote.savedAt).getTime():0;
+  if(remoteTime>localTime){
+    applyLoadedData(remote);
+    saveState();
+    render();
+    updateSyncIndicator("ok");
+  } else {
+    updateSyncIndicator("ok");
+    // Se locale è più recente, carica SHA per futuri salvataggi
+  }
+})();
+
+window.addEventListener("beforeunload",()=>saveState());
+</script>
+</body>
+</html>
