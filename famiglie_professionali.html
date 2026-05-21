@@ -414,7 +414,7 @@ function defaultRuoli(){
 function newAzienda(nome,settore){
   const ruoli=defaultRuoli();
   return {id:uid(),nome,settore,ambiti:[],nuovoAmbito:"",
-    criteriPesi:{c1:20,c2:20,c3:20,c4:20,c5:20},ruoli,
+    criteriPesi:{c1:20,c2:20,c3:20,c4:20,c5:20},pesoFamiglia:{ruolo:60,ambito:40},ruoli,
     nuovoRuoloNome:"",nuovoRuoloMult:"",
     selectedRuoloId:ruoli[0].id,
     posizioni:[],nuovaPos:{nome:"",livello:"",ruoloId:"",ambitoId:""},editPosId:null};
@@ -539,7 +539,7 @@ function normalizeData(data){
     settore:a.settore||"",
     ambiti:a.ambiti||[],
     nuovoAmbito:"",
-    criteriPesi:a.criteriPesi||{c1:20,c2:20,c3:20,c4:20,c5:20},
+    criteriPesi:a.criteriPesi||{c1:20,c2:20,c3:20,c4:20,c5:20},pesoFamiglia:a.pesoFamiglia||{ruolo:60,ambito:40},
     ruoli:(a.ruoli||[]).map(r=>({
       id:r.id||uid(),nome:r.nome||"",mult:r.mult||1.0,
       color:r.color||RUOLI_COLORS_POOL[0],
@@ -606,7 +606,7 @@ const azIdx=(id)=>S.aziende.findIndex(a=>a.id===id);
 const initials=(n)=>n.split(" ").slice(0,2).map(w=>w[0]||"").join("").toUpperCase()||"?";
 function getPesi(a){const p=a.criteriPesi;const c1=p.c1||0,c2=p.c2||0,c3=p.c3||0,c4=p.c4||0,c5=p.c5||0;const t=c1+c2+c3+c4+c5||100;return{c1:c1/t,c2:c2/t,c3:c3/t,c4:c4/t,c5:c5/t,tot:c1+c2+c3+c4+c5};}
 function getRuoloScore(a,r){const v=r.valutazione;if(v.c1==null||v.c2==null||v.c3==null||v.c4==null||v.c5==null)return null;const p=getPesi(a);return parseFloat((v.c1*p.c1+v.c2*p.c2+v.c3*p.c3+v.c4*p.c4+v.c5*p.c5).toFixed(2));}
-function getFamilyScore(a,ruolo,amb){const rs=getRuoloScore(a,ruolo);if(rs===null||!amb||amb.peso===0)return null;const ambNorm=parseFloat((((amb.peso-1)/7)*8).toFixed(4));return parseFloat((rs*0.60+ambNorm*0.40).toFixed(2));}
+function getFamilyScore(a,ruolo,amb){const rs=getRuoloScore(a,ruolo);if(rs===null||!amb||amb.peso===0)return null;const ambNorm=parseFloat((((amb.peso-1)/7)*8).toFixed(4));const pf=a.pesoFamiglia||{ruolo:60,ambito:40};const pr=pf.ruolo/100,pa=pf.ambito/100;return parseFloat((rs*pr+ambNorm*pa).toFixed(2));}
 function getFamilies(a){const map={};a.posizioni.forEach(p=>{if(!p.ambitoId||!p.ruoloId)return;const amb=a.ambiti.find(x=>x.id===p.ambitoId);const r=a.ruoli.find(x=>x.id===p.ruoloId);if(!amb||!r)return;const k=`${r.id}||${amb.id}`;if(!map[k])map[k]={ruolo:r,ambito:amb,posizioni:[],score:getFamilyScore(a,r,amb)};map[k].posizioni.push(p);});return Object.values(map).sort((a,b)=>(b.score||0)-(a.score||0));}
 function azProg(a){let s=0;if(a.ambiti.some(x=>x.peso>0))s++;if(a.ruoli.some(r=>getRuoloScore(a,r)!==null))s++;if(a.posizioni.length>0)s++;return s;}
 
@@ -705,7 +705,7 @@ function renderTopbar(){
 
 function renderTabbar(){
   const bar=document.getElementById("tabbar");bar.innerHTML="";
-  ["1. Ambiti","2. Valuta ruoli","3. Posizioni","4. Famiglie","5. Graduatoria"].forEach((t,i)=>{
+  ["1. Ambiti","2. Valuta ruoli","3. Posizioni","4. Famiglie"].forEach((t,i)=>{
     const b=mk("button","tab-btn"+(S.tab===i?" active":""),{onclick:()=>{S.tab=i;renderContent();}});
     b.textContent=t;bar.appendChild(b);
   });
@@ -720,7 +720,6 @@ function renderContent(){
   if(S.tab===1)tabRuoli(c,a);
   if(S.tab===2)tabPosizioni(c,a);
   if(S.tab===3)tabFamiglie(c,a);
-  if(S.tab===4)tabGraduatoria(c,a);
 }
 
 // ── TAB 1: AMBITI ─────────────────────────────────────────────
@@ -993,21 +992,96 @@ function tabPosizioni(c,a){
 
 // ── TAB 4: FAMIGLIE ──────────────────────────────────────────
 function tabFamiglie(c,a){
-  stepHdr(c,"4","Famiglie professionali","Stesso ruolo + stesso ambito = stessa famiglia. La differenza interna è data dalle competenze tecnico-professionali specifiche.");
-  const fams=getFamilies(a);
+  stepHdr(c,"4","Famiglie professionali","Stesso ruolo + stesso ambito = stessa famiglia. La differenza interna tra le posizioni è data dalle competenze tecnico-professionali specifiche. Le famiglie sono ordinate per punteggio composito decrescente.");
+
+  // ── Card pesi punteggio famiglia ──
+  const pf=a.pesoFamiglia||{ruolo:60,ambito:40};
+  const pfCard=mk("div","card");
+  pfCard.appendChild(mkTitle("Pesi del punteggio famiglia"));
+  const pfSub=mk("p","card-sub");pfSub.textContent="Definisci quanto incide il punteggio ruolo e quanto il peso ambito nel calcolo del punteggio composito di ogni famiglia.";pfCard.appendChild(pfSub);
+
+  const pfTot=pf.ruolo+pf.ambito;const pfOk=pfTot===100;
+  ["ruolo","ambito"].forEach(key=>{
+    const label=key==="ruolo"?"Punteggio ruolo":"Peso ambito";
+    const clr=key==="ruolo"?"#7F77DD":"#EF9F27";
+    const row=mk("div","");row.style.marginBottom="10px";
+    const lrow=mk("div","");lrow.style.cssText="display:flex;justify-content:space-between;margin-bottom:4px;";
+    lrow.innerHTML=`<span style="font-size:12px;font-weight:500;">${label}</span><span style="font-size:12px;font-weight:500;color:${clr};">${pf[key]}%</span>`;
+    row.appendChild(lrow);
+    const sr=mk("div","");sr.style.cssText="display:flex;align-items:center;gap:10px;";
+    const sl=mk("input","");sl.type="range";sl.min=10;sl.max=90;sl.step=5;sl.value=pf[key];
+    sl.addEventListener("input",e=>{
+      a.pesoFamiglia[key]=parseInt(e.target.value);
+      // Ricalcola l'altro in modo che sommino 100
+      const other=key==="ruolo"?"ambito":"ruolo";
+      a.pesoFamiglia[other]=100-a.pesoFamiglia[key];
+      renderContent();
+    });
+    const bw=mk("div","");bw.style.cssText="width:80px;background:var(--bg2);border-radius:4px;height:6px;overflow:hidden;";
+    const bf=mk("div","");bf.style.cssText=`width:${pf[key]}%;height:6px;border-radius:4px;background:${clr};`;
+    bw.appendChild(bf);sr.appendChild(sl);sr.appendChild(bw);row.appendChild(sr);pfCard.appendChild(row);
+  });
+
+  const totRow=mk("div","peso-total");totRow.style.background=pfOk?"var(--success-bg)":"var(--warn-bg)";
+  totRow.innerHTML=`<span style="font-size:12px;font-weight:500;color:${pfOk?"var(--success-tc)":"var(--warn-tc)"};">${pfOk?"✓ Pesi bilanciati":"⚠ I pesi devono sommare a 100"}</span><span style="font-size:14px;font-weight:500;color:${pfOk?"var(--success-tc)":"var(--warn-tc)"};">${pfTot}/100</span>`;
+  pfCard.appendChild(totRow);
+  const rst=mk("button","",{onclick:()=>{a.pesoFamiglia={ruolo:60,ambito:40};renderContent();}});
+  rst.style.cssText="margin-top:8px;font-size:11px;color:var(--text2);background:none;border:none;cursor:pointer;padding:0;";
+  rst.textContent="↺ Ripristina default (60/40)";pfCard.appendChild(rst);
+  c.appendChild(pfCard);
+
+  // Ordina per punteggio decrescente, solo famiglie con score
+  const famsAll=getFamilies(a);
+  const famsScored=famsAll.filter(f=>f.score!==null).sort((a,b)=>b.score-a.score);
+  const famsNoScore=famsAll.filter(f=>f.score===null);
+  const fams=[...famsScored,...famsNoScore];
   if(fams.length===0){const em=mk("p","empty");em.textContent="Nessuna famiglia popolata.";c.appendChild(em);return;}
-  fams.forEach(f=>{
+  const maxScore=famsScored.length>0?famsScored[0].score:1;
+
+  // Nota compliance
+  const pp=getPesi(a);
+  const notaCard=mk("div","nota");notaCard.style.marginBottom=".85rem";
+  notaCard.innerHTML=`Pesi criteri: Autonomia ${Math.round(pp.c1*100)}% · Visione sistemica ${Math.round(pp.c2*100)}% · Risorse ${Math.round(pp.c3*100)}% · Rapporti esterni ${Math.round(pp.c4*100)}% · Conoscenze ${Math.round(pp.c5*100)}%<br>Punteggio famiglia: Ruolo ${(a.pesoFamiglia||{ruolo:60}).ruolo}% · Ambito ${(a.pesoFamiglia||{ambito:40}).ambito}%`;
+  c.appendChild(notaCard);
+
+  fams.forEach((f,i)=>{
     const colR=f.ruolo.color||RUOLI_COLORS_POOL[0];
-    const card=mk("div","card");
-    card.innerHTML=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:9px;">
-      <div><p style="font-size:14px;font-weight:500;">${f.ruolo.nome} <span style="color:var(--text2);font-weight:400;">— ${f.ambito.nome}</span></p>
-      <p style="font-size:11px;color:var(--text2);margin-top:2px;">${f.posizioni.length} posizione${f.posizioni.length>1?"i":""} · punteggio ${f.score!==null?f.score.toFixed(2):"—"}</p></div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
-        <span class="badge" style="background:${colR.bg};color:${colR.tc};">${f.ruolo.nome}</span>
-        <span class="badge" style="background:var(--bg2);color:var(--text2);">×${parseFloat(f.ruolo.mult).toFixed(1)}</span></div></div>`;
+    // Colore ambito: usa la scala dei pesi ambito
+    const ambitoClrs=["","#D3D1C7","#B4B2A9","#9FE1CB","#85B7EB","#5DCAA5","#EF9F27","#D85A30","#7F77DD"];
+    const ambitoClr=ambitoClrs[f.ambito.peso]||"#B4B2A9";
+    const pct=f.score!==null?Math.round((f.score/maxScore)*100):0;
+    const rank=f.score!==null?i+1:null;
+
+    const row=mk("div","row-item");row.style.cssText="flex-direction:column;align-items:stretch;padding:10px 14px;gap:0;";
+
+    // Riga superiore: rank + ruolo + ambito
+    const top=mk("div","");top.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:7px;";
+    if(rank){
+      const rk=mk("span","");rk.style.cssText="font-size:12px;font-weight:500;color:var(--text2);min-width:20px;text-align:center;";rk.textContent=rank;top.appendChild(rk);
+    }
+    // Badge ruolo colorato
+    const ruoloBadge=mk("span","badge");ruoloBadge.style.cssText=`background:${colR.bg};color:${colR.tc};font-size:12px;`;ruoloBadge.textContent=f.ruolo.nome;top.appendChild(ruoloBadge);
+    // Badge ambito colorato
+    const ambitoBadge=mk("span","badge");ambitoBadge.style.cssText=`background:${ambitoClr}22;color:${ambitoClr};border:0.5px solid ${ambitoClr}44;font-size:12px;`;ambitoBadge.textContent=f.ambito.nome;top.appendChild(ambitoBadge);
+    const spacer=mk("div","");spacer.style.flex="1";top.appendChild(spacer);
+    // Punteggio
+    const sc=mk("span","");sc.style.cssText=`font-size:13px;font-weight:600;color:${f.score!==null?colR.tc:"var(--text2)"};`;sc.textContent=f.score!==null?f.score.toFixed(2):"—";top.appendChild(sc);
+    row.appendChild(top);
+
+    // Barra punteggio
+    if(f.score!==null){
+      const barWrap=mk("div","");barWrap.style.cssText="display:flex;align-items:center;gap:8px;margin-bottom:7px;";
+      const barBg=mk("div","bar-bg");
+      const barFill=mk("div","bar-fill");barFill.style.cssText=`width:${pct}%;background:${colR.bar};`;
+      barBg.appendChild(barFill);barWrap.appendChild(barBg);
+      row.appendChild(barWrap);
+    }
+
+    // Chips posizioni
     const chips=mk("div","");chips.style.cssText="display:flex;flex-wrap:wrap;gap:5px;";
-    f.posizioni.forEach(p=>{const ch=mk("span","chip");ch.textContent=p.nome;chips.appendChild(ch);});
-    card.appendChild(chips);c.appendChild(card);
+    f.posizioni.forEach(p=>{const ch=mk("span","chip");ch.textContent=p.nome+(p.livello?" ("+p.livello+")":"");chips.appendChild(ch);});
+    row.appendChild(chips);
+    c.appendChild(row);
   });
 }
 
@@ -1030,7 +1104,7 @@ function tabGraduatoria(c,a){
   });
   const pp=getPesi(a);
   const nota=mk("div","nota");nota.style.marginTop=".85rem";
-  nota.innerHTML=`Pesi criteri applicati: Autonomia ${Math.round(pp.c1*100)}% · Visione sistemica ${Math.round(pp.c2*100)}% · Risorse ${Math.round(pp.c3*100)}% · Rapporti esterni ${Math.round(pp.c4*100)}% · Conoscenze ${Math.round(pp.c5*100)}%<br>Documenta pesi e criteri in un verbale firmato dal management per la compliance pay transparency.`;
+  nota.innerHTML=`Pesi criteri: Autonomia ${Math.round(pp.c1*100)}% · Visione sistemica ${Math.round(pp.c2*100)}% · Risorse ${Math.round(pp.c3*100)}% · Rapporti esterni ${Math.round(pp.c4*100)}% · Conoscenze ${Math.round(pp.c5*100)}% | Punteggio famiglia: Ruolo ${(a.pesoFamiglia||{ruolo:60}).ruolo}% · Ambito ${(a.pesoFamiglia||{ambito:40}).ambito}%<br>Documenta pesi e criteri in un verbale firmato dal management per la compliance pay transparency.`;
   c.appendChild(nota);
 }
 
